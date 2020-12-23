@@ -1,0 +1,86 @@
+{
+  "building": {
+    "row": 1,
+    "column": 1,
+    "width": 96,
+    "height": 96
+  },
+  "room": {
+    "row": 1,
+    "column": 2,
+    "width": 96,
+    "height": 96
+  },
+  "facility": {
+    "row": 1,
+    "column": 3,
+    "width": 96,
+    "height": 96
+  },
+  "water": {
+    "row": 1,
+    "column": 4,
+    "width": 96,
+    "height": 96
+  },
+  "printer": {
+    "row": 2,
+    "column": 1,
+    "width": 96,
+    "height": 96
+  },
+  "locker": {
+    "row": 2,
+    "column": 2,
+    "width": 96,
+    "height": 96
+  },
+  "vending": {
+    "row": 2,
+    "column": 3,
+    "width": 96,
+    "height": 96
+  },
+  "coffee": {
+    "row": 2,
+    "column": 4,
+    "width": 96,
+    "height": 96
+  },
+  "service": {
+    "row": 3,
+    "column": 1,
+    "width": 96,
+    "height": 96
+  },
+  "scenery": {
+    "row": 3,
+    "column": 2,
+    "width": 96,
+    "height": 96
+  },
+  "culture": {
+    "row": 3,
+    "column": 3,
+    "width": 96,
+    "height": 96
+  },
+  "entrance": {
+    "row": 3,
+    "column": 4,
+    "width": 96,
+    "height": 96
+  },
+  "monoprinter": {
+    "row": 4,
+    "column": 1,
+    "width": 96,
+    "height": 96
+  },
+  "colorprinter": {
+    "row": 4,
+    "column": 2,
+    "width": 96,
+    "height": 96
+  }
+}

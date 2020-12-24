@@ -1,3 +1,5 @@
 <resources>
     <string name="loading">Cargando...</string>
+    <string name="choose_floor">Elige un piso de %s para entrar</string>
+    <string name="button_cancel">Cancelar</string>
 </resources>

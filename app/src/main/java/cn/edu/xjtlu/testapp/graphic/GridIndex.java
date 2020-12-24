@@ -148,7 +148,7 @@ public class GridIndex {
             }
         }
 
-        Log.d(TAG, "insert: " + shape);
+//        Log.d(TAG, "insert: " + shape);
 
         int index = shapeList.size();
         for (int x = cx1; x <= cx2; ++x) {

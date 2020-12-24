@@ -1,8 +1,11 @@
 package cn.edu.xjtlu.testapp.bean;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
+
 import java.io.Serializable;
 import java.util.List;
 
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public class Floor implements Serializable {
     private Integer id;
 

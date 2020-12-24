@@ -1,6 +1,9 @@
 package cn.edu.xjtlu.testapp.api;
 
+import android.util.Log;
+
 import java.io.IOException;
+import java.util.Locale;
 
 import cn.edu.xjtlu.testapp.util.Constant;
 import io.reactivex.Observable;
@@ -16,11 +19,14 @@ import retrofit2.converter.gson.GsonConverterFactory;
 import retrofit2.http.Path;
 
 public class Api {
+    private static final String TAG = Api.class.getSimpleName();
     private static Api instance;
 
     private static Service service;
 
     public Api() {
+        Locale locale = Locale.getDefault();
+
         OkHttpClient.Builder clientBuilder = new OkHttpClient.Builder();
         clientBuilder.addInterceptor(new Interceptor() {
             @Override
@@ -28,7 +34,7 @@ public class Api {
                 Request original = chain.request();
 
                 Request request = original.newBuilder()
-                        .header("Content-Language", "en, en")
+                        .header("Content-Language", String.format("%s, en", locale.getLanguage()))
                         .method(original.method(), original.body())
                         .build();
 
@@ -51,16 +57,21 @@ public class Api {
         return instance;
     }
 
-    public Observable<Result<String>> getFloorInfo(Integer buildingId, Integer floorId) {
-        if (buildingId == null && floorId == null) {
+    public Observable<Result<String>> getFloorInfo(Integer floorId, Integer buildingId) {
+        if (floorId == null && buildingId == null) {
             return service.getCampusInfo()
                     .subscribeOn(Schedulers.io())
                     .observeOn(AndroidSchedulers.mainThread());
         } else {
-            return service.getFloorInfo(buildingId, floorId)
+            return service.getFloorInfo(floorId, buildingId)
                     .subscribeOn(Schedulers.io())
                     .observeOn(AndroidSchedulers.mainThread());
         }
     }
 
+    public Observable<Result<String>> getPlaceInfo(Integer id) {
+        return service.getPlaceInfo(id)
+                .subscribeOn(Schedulers.io())
+                .observeOn(AndroidSchedulers.mainThread());
+    }
 }

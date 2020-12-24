@@ -8,11 +8,11 @@ import java.io.Serializable;
 import java.util.Objects;
 
 public class Point implements Serializable {
-    public double x;
+    private double x;
 
-    public double y;
+    private double y;
 
-    public double z;
+    private double z;
 
     public Point() {
         this.z = 0;
@@ -27,6 +27,30 @@ public class Point implements Serializable {
     public Point(double x, double y, double z) {
         this.x = x;
         this.y = y;
+        this.z = z;
+    }
+
+    public double getX() {
+        return x;
+    }
+
+    public void setX(double x) {
+        this.x = x;
+    }
+
+    public double getY() {
+        return y;
+    }
+
+    public void setY(double y) {
+        this.y = y;
+    }
+
+    public double getZ() {
+        return z;
+    }
+
+    public void setZ(double z) {
         this.z = z;
     }
 

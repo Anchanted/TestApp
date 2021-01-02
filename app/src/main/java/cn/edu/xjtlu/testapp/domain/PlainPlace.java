@@ -1,27 +1,26 @@
-package cn.edu.xjtlu.testapp.bean;
+package cn.edu.xjtlu.testapp.domain;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 
-import java.io.Serializable;
 import java.util.List;
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
-public class Place implements Serializable {
+public class PlainPlace {
     private Integer id;
 
     private String placeType;
 
     private String code;
 
-    private Object name;
+    private String name;
 
-    private Object shortName;
+    private String shortName;
 
     private Object type;
 
-    private Object description;
+    private String description;
 
-    private Object department;
+    private String department;
 
     private String iconType;
 
@@ -37,19 +36,33 @@ public class Place implements Serializable {
 
     private Object extraInfo;
 
+    private Integer level;
+
+    private Float iconLevel;
+
+    private Integer displayLevel;
+
+    private Point location;
+
+    private List<List<Point>> areaCoords;
+
     private Object address;
 
     private Integer buildingId;
 
     private String buildingCode;
 
-    private Object buildingName;
+    private String buildingName;
 
     private String buildingZone;
 
-    private List<PlaceFloor> floorInfo;
+    private Integer floorId;
 
-    public Place() {}
+    private String floorName;
+
+    private Integer floorLevelIndex;
+
+    public PlainPlace() {}
 
     public Integer getId() {
         return id;
@@ -75,19 +88,19 @@ public class Place implements Serializable {
         this.code = code;
     }
 
-    public Object getName() {
+    public String getName() {
         return name;
     }
 
-    public void setName(Object name) {
+    public void setName(String name) {
         this.name = name;
     }
 
-    public Object getShortName() {
+    public String getShortName() {
         return shortName;
     }
 
-    public void setShortName(Object shortName) {
+    public void setShortName(String shortName) {
         this.shortName = shortName;
     }
 
@@ -99,19 +112,19 @@ public class Place implements Serializable {
         this.type = type;
     }
 
-    public Object getDescription() {
+    public String getDescription() {
         return description;
     }
 
-    public void setDescription(Object description) {
+    public void setDescription(String description) {
         this.description = description;
     }
 
-    public Object getDepartment() {
+    public String getDepartment() {
         return department;
     }
 
-    public void setDepartment(Object department) {
+    public void setDepartment(String department) {
         this.department = department;
     }
 
@@ -171,6 +184,46 @@ public class Place implements Serializable {
         this.extraInfo = extraInfo;
     }
 
+    public Integer getLevel() {
+        return level;
+    }
+
+    public void setLevel(Integer level) {
+        this.level = level;
+    }
+
+    public Float getIconLevel() {
+        return iconLevel;
+    }
+
+    public void setIconLevel(Float iconLevel) {
+        this.iconLevel = iconLevel;
+    }
+
+    public Integer getDisplayLevel() {
+        return displayLevel;
+    }
+
+    public void setDisplayLevel(Integer displayLevel) {
+        this.displayLevel = displayLevel;
+    }
+
+    public Point getLocation() {
+        return location;
+    }
+
+    public void setLocation(Point location) {
+        this.location = location;
+    }
+
+    public List<List<Point>> getAreaCoords() {
+        return areaCoords;
+    }
+
+    public void setAreaCoords(List<List<Point>> areaCoords) {
+        this.areaCoords = areaCoords;
+    }
+
     public Object getAddress() {
         return address;
     }
@@ -195,11 +248,11 @@ public class Place implements Serializable {
         this.buildingCode = buildingCode;
     }
 
-    public Object getBuildingName() {
+    public String getBuildingName() {
         return buildingName;
     }
 
-    public void setBuildingName(Object buildingName) {
+    public void setBuildingName(String buildingName) {
         this.buildingName = buildingName;
     }
 
@@ -211,17 +264,33 @@ public class Place implements Serializable {
         this.buildingZone = buildingZone;
     }
 
-    public List<PlaceFloor> getFloorInfo() {
-        return floorInfo;
+    public Integer getFloorId() {
+        return floorId;
     }
 
-    public void setFloorInfo(List<PlaceFloor> floorInfo) {
-        this.floorInfo = floorInfo;
+    public void setFloorId(Integer floorId) {
+        this.floorId = floorId;
+    }
+
+    public String getFloorName() {
+        return floorName;
+    }
+
+    public void setFloorName(String floorName) {
+        this.floorName = floorName;
+    }
+
+    public Integer getFloorLevelIndex() {
+        return floorLevelIndex;
+    }
+
+    public void setFloorLevelIndex(Integer floorLevelIndex) {
+        this.floorLevelIndex = floorLevelIndex;
     }
 
     @Override
     public String toString() {
-        return "Place{" +
+        return "PlainPlace{" +
                 "id=" + id +
                 ", placeType=" + placeType +
                 ", code=" + code +
@@ -237,12 +306,19 @@ public class Place implements Serializable {
                 ", zone=" + zone +
                 ", baseFloorId=" + baseFloorId +
                 ", extraInfo=" + extraInfo +
+                ", level=" + level +
+                ", iconLevel=" + iconLevel +
+                ", displayLevel=" + displayLevel +
+                ", location=" + location +
+                ", areaCoords=" + areaCoords +
                 ", address=" + address +
                 ", buildingId=" + buildingId +
                 ", buildingCode=" + buildingCode +
                 ", buildingName=" + buildingName +
                 ", buildingZone=" + buildingZone +
-                ", floorInfo=" + floorInfo +
+                ", floorId=" + floorId +
+                ", floorName=" + floorName +
+                ", floorLevelIndex=" + floorLevelIndex +
                 '}';
     }
 }

@@ -1,4 +1,4 @@
-package cn.edu.xjtlu.testapp.bean;
+package cn.edu.xjtlu.testapp.domain;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 

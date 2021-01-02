@@ -4,7 +4,7 @@ import java.net.ConnectException;
 import java.net.SocketTimeoutException;
 import java.net.UnknownHostException;
 
-import cn.edu.xjtlu.testapp.api.Result;
+import cn.edu.xjtlu.testapp.domain.response.Result;
 import retrofit2.HttpException;
 
 public class HttpUtil {

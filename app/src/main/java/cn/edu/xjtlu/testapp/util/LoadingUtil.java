@@ -16,7 +16,6 @@ public class LoadingUtil {
         if (activity == null || activity.isFinishing()) return;
 
         if (progressDialog != null) {
-
             return;
         }
 

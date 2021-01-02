@@ -8,7 +8,7 @@ import android.text.StaticLayout;
 import java.util.ArrayList;
 import java.util.List;
 
-import cn.edu.xjtlu.testapp.bean.PlainPlace;
+import cn.edu.xjtlu.testapp.domain.PlainPlace;
 
 public class GraphicPlace implements Comparable<GraphicPlace>{
     public enum TextPosition {
@@ -87,9 +87,9 @@ public class GraphicPlace implements Comparable<GraphicPlace>{
             this.areaCoords = null;
         } else {
             this.areaCoords = new ArrayList<>();
-            for (List<cn.edu.xjtlu.testapp.bean.Point> pointList : pp.getAreaCoords()) {
+            for (List<cn.edu.xjtlu.testapp.domain.Point> pointList : pp.getAreaCoords()) {
                 List<Point> gpointList = new ArrayList<>();
-                for (cn.edu.xjtlu.testapp.bean.Point point : pointList) {
+                for (cn.edu.xjtlu.testapp.domain.Point point : pointList) {
                     gpointList.add(convertPoint((int) point.getX(), (int) point.getY(), false));
                 }
                 areaCoords.add(gpointList);

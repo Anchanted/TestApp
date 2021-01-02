@@ -4,4 +4,11 @@
         <item name="android:fontFamily">@font/lato</item>
         <item name="fontFamily">@font/lato</item> <!-- target android sdk versions < 26 and > 14 if theme other than AppCompat -->
     </style>
+    <style name="FunctionButton">
+        <item name="android:layout_width">@dimen/button_size</item>
+        <item name="android:layout_height">@dimen/button_size</item>
+        <item name="android:textColor">@color/button_color</item>
+        <item name="android:textSize">@dimen/button_icon_size</item>
+        <item name="android:background">@drawable/function_button</item>
+    </style>
 </resources>

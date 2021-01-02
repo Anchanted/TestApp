@@ -1,11 +1,11 @@
 package cn.edu.xjtlu.testapp.api;
 
-import android.util.Log;
-
 import java.io.IOException;
 import java.util.Locale;
 
+import cn.edu.xjtlu.testapp.domain.response.Result;
 import cn.edu.xjtlu.testapp.util.Constant;
+import cn.edu.xjtlu.testapp.util.LogUtil;
 import io.reactivex.Observable;
 import io.reactivex.android.schedulers.AndroidSchedulers;
 import io.reactivex.schedulers.Schedulers;
@@ -13,10 +13,10 @@ import okhttp3.Interceptor;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
+import okhttp3.logging.HttpLoggingInterceptor;
 import retrofit2.Retrofit;
 import retrofit2.adapter.rxjava2.RxJava2CallAdapterFactory;
 import retrofit2.converter.gson.GsonConverterFactory;
-import retrofit2.http.Path;
 
 public class Api {
     private static final String TAG = Api.class.getSimpleName();
@@ -41,6 +41,12 @@ public class Api {
                 return chain.proceed(request);
             }
         });
+        if (LogUtil.isDebug) {
+            HttpLoggingInterceptor loggingInterceptor = new HttpLoggingInterceptor();
+            loggingInterceptor.level(HttpLoggingInterceptor.Level.BASIC);
+            clientBuilder.addInterceptor(loggingInterceptor);
+        }
+
         Retrofit retrofit = new Retrofit.Builder()
                 .client(clientBuilder.build())
                 .baseUrl(Constant.ENDPOINT)

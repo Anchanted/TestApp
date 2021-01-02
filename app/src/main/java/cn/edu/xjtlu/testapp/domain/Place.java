@@ -1,28 +1,27 @@
-package cn.edu.xjtlu.testapp.bean;
-
-import android.text.StaticLayout;
+package cn.edu.xjtlu.testapp.domain;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 
+import java.io.Serializable;
 import java.util.List;
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
-public class PlainPlace {
+public class Place implements Serializable {
     private Integer id;
 
     private String placeType;
 
     private String code;
 
-    private String name;
+    private Object name;
 
-    private String shortName;
+    private Object shortName;
 
     private Object type;
 
-    private String description;
+    private Object description;
 
-    private String department;
+    private Object department;
 
     private String iconType;
 
@@ -38,33 +37,19 @@ public class PlainPlace {
 
     private Object extraInfo;
 
-    private Integer level;
-
-    private Float iconLevel;
-
-    private Integer displayLevel;
-
-    private Point location;
-
-    private List<List<Point>> areaCoords;
-
     private Object address;
 
     private Integer buildingId;
 
     private String buildingCode;
 
-    private String buildingName;
+    private Object buildingName;
 
     private String buildingZone;
 
-    private Integer floorId;
+    private List<PlaceFloor> floorInfo;
 
-    private String floorName;
-
-    private Integer floorLevelIndex;
-
-    public PlainPlace() {}
+    public Place() {}
 
     public Integer getId() {
         return id;
@@ -90,19 +75,19 @@ public class PlainPlace {
         this.code = code;
     }
 
-    public String getName() {
+    public Object getName() {
         return name;
     }
 
-    public void setName(String name) {
+    public void setName(Object name) {
         this.name = name;
     }
 
-    public String getShortName() {
+    public Object getShortName() {
         return shortName;
     }
 
-    public void setShortName(String shortName) {
+    public void setShortName(Object shortName) {
         this.shortName = shortName;
     }
 
@@ -114,19 +99,19 @@ public class PlainPlace {
         this.type = type;
     }
 
-    public String getDescription() {
+    public Object getDescription() {
         return description;
     }
 
-    public void setDescription(String description) {
+    public void setDescription(Object description) {
         this.description = description;
     }
 
-    public String getDepartment() {
+    public Object getDepartment() {
         return department;
     }
 
-    public void setDepartment(String department) {
+    public void setDepartment(Object department) {
         this.department = department;
     }
 
@@ -186,46 +171,6 @@ public class PlainPlace {
         this.extraInfo = extraInfo;
     }
 
-    public Integer getLevel() {
-        return level;
-    }
-
-    public void setLevel(Integer level) {
-        this.level = level;
-    }
-
-    public Float getIconLevel() {
-        return iconLevel;
-    }
-
-    public void setIconLevel(Float iconLevel) {
-        this.iconLevel = iconLevel;
-    }
-
-    public Integer getDisplayLevel() {
-        return displayLevel;
-    }
-
-    public void setDisplayLevel(Integer displayLevel) {
-        this.displayLevel = displayLevel;
-    }
-
-    public Point getLocation() {
-        return location;
-    }
-
-    public void setLocation(Point location) {
-        this.location = location;
-    }
-
-    public List<List<Point>> getAreaCoords() {
-        return areaCoords;
-    }
-
-    public void setAreaCoords(List<List<Point>> areaCoords) {
-        this.areaCoords = areaCoords;
-    }
-
     public Object getAddress() {
         return address;
     }
@@ -250,11 +195,11 @@ public class PlainPlace {
         this.buildingCode = buildingCode;
     }
 
-    public String getBuildingName() {
+    public Object getBuildingName() {
         return buildingName;
     }
 
-    public void setBuildingName(String buildingName) {
+    public void setBuildingName(Object buildingName) {
         this.buildingName = buildingName;
     }
 
@@ -266,33 +211,17 @@ public class PlainPlace {
         this.buildingZone = buildingZone;
     }
 
-    public Integer getFloorId() {
-        return floorId;
+    public List<PlaceFloor> getFloorInfo() {
+        return floorInfo;
     }
 
-    public void setFloorId(Integer floorId) {
-        this.floorId = floorId;
-    }
-
-    public String getFloorName() {
-        return floorName;
-    }
-
-    public void setFloorName(String floorName) {
-        this.floorName = floorName;
-    }
-
-    public Integer getFloorLevelIndex() {
-        return floorLevelIndex;
-    }
-
-    public void setFloorLevelIndex(Integer floorLevelIndex) {
-        this.floorLevelIndex = floorLevelIndex;
+    public void setFloorInfo(List<PlaceFloor> floorInfo) {
+        this.floorInfo = floorInfo;
     }
 
     @Override
     public String toString() {
-        return "PlainPlace{" +
+        return "Place{" +
                 "id=" + id +
                 ", placeType=" + placeType +
                 ", code=" + code +
@@ -308,19 +237,12 @@ public class PlainPlace {
                 ", zone=" + zone +
                 ", baseFloorId=" + baseFloorId +
                 ", extraInfo=" + extraInfo +
-                ", level=" + level +
-                ", iconLevel=" + iconLevel +
-                ", displayLevel=" + displayLevel +
-                ", location=" + location +
-                ", areaCoords=" + areaCoords +
                 ", address=" + address +
                 ", buildingId=" + buildingId +
                 ", buildingCode=" + buildingCode +
                 ", buildingName=" + buildingName +
                 ", buildingZone=" + buildingZone +
-                ", floorId=" + floorId +
-                ", floorName=" + floorName +
-                ", floorLevelIndex=" + floorLevelIndex +
+                ", floorInfo=" + floorInfo +
                 '}';
     }
 }

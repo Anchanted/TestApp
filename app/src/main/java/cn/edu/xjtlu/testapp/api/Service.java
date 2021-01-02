@@ -1,6 +1,6 @@
 package cn.edu.xjtlu.testapp.api;
 
-import cn.edu.xjtlu.testapp.bean.PlainPlace;
+import cn.edu.xjtlu.testapp.domain.response.Result;
 import io.reactivex.Observable;
 import retrofit2.http.GET;
 import retrofit2.http.Path;

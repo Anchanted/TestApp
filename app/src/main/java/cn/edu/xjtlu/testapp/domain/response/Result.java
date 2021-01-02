@@ -1,4 +1,4 @@
-package cn.edu.xjtlu.testapp.api;
+package cn.edu.xjtlu.testapp.domain.response;
 
 public class Result<T> {
     private Integer code;

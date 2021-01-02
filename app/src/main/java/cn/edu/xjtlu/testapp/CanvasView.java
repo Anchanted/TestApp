@@ -1,9 +1,6 @@
 package cn.edu.xjtlu.testapp;
 
-import android.app.admin.SystemUpdateInfo;
 import android.content.Context;
-import android.content.pm.ActivityInfo;
-import android.content.res.Configuration;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
@@ -11,20 +8,16 @@ import android.graphics.Color;
 import android.graphics.Matrix;
 import android.graphics.Paint;
 import android.graphics.Path;
-import android.graphics.PixelFormat;
 import android.graphics.Point;
 import android.graphics.PointF;
 import android.graphics.PorterDuff;
 import android.graphics.Rect;
 import android.graphics.RectF;
 import android.graphics.Region;
-import android.graphics.drawable.Drawable;
 import android.os.Build;
-import android.os.Handler;
 import android.text.StaticLayout;
 import android.text.TextPaint;
 import android.util.AttributeSet;
-import android.util.Log;
 import android.util.Pair;
 import android.view.GestureDetector;
 import android.view.MotionEvent;
@@ -36,50 +29,29 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 
-import com.bumptech.glide.Glide;
-import com.bumptech.glide.request.Request;
-import com.bumptech.glide.request.target.CustomTarget;
-import com.bumptech.glide.request.target.SizeReadyCallback;
-import com.bumptech.glide.request.target.Target;
-import com.bumptech.glide.request.transition.Transition;
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import java.io.IOException;
-import java.net.ConnectException;
-import java.net.SocketTimeoutException;
-import java.net.UnknownHostException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import cn.edu.xjtlu.testapp.api.Api;
-import cn.edu.xjtlu.testapp.api.Result;
-import cn.edu.xjtlu.testapp.bean.Floor;
 import cn.edu.xjtlu.testapp.graphic.BBox;
 import cn.edu.xjtlu.testapp.graphic.BCircle;
 import cn.edu.xjtlu.testapp.graphic.GraphicPlace;
-import cn.edu.xjtlu.testapp.bean.PlainPlace;
+import cn.edu.xjtlu.testapp.domain.PlainPlace;
 import cn.edu.xjtlu.testapp.graphic.GridIndex;
-import cn.edu.xjtlu.testapp.listener.HttpObserver;
 import cn.edu.xjtlu.testapp.listener.OnPlaceSelectedListener;
-import cn.edu.xjtlu.testapp.util.AESUtil;
 import cn.edu.xjtlu.testapp.util.JsonAssetsReader;
-import cn.edu.xjtlu.testapp.util.LoadingUtil;
-import cn.edu.xjtlu.testapp.util.UnitConverter;
-import io.reactivex.Observer;
-import io.reactivex.disposables.Disposable;
-import okhttp3.HttpUrl;
-import okhttp3.Response;
-import retrofit2.HttpException;
+import cn.edu.xjtlu.testapp.util.LogUtil;
 
 public class CanvasView extends SurfaceView implements SurfaceHolder.Callback, Runnable, GestureDetector.OnGestureListener, GestureDetector.OnDoubleTapListener, ScaleGestureDetector.OnScaleGestureListener {
     private static final String TAG = CanvasView.class.getName();
 
+    private Context mContext;
+    private Thread surfaceThread;
     private SurfaceHolder surfaceHolder;
     private boolean doDrawing;
     private final Rect boundingClientRect = new Rect();
@@ -107,6 +79,7 @@ public class CanvasView extends SurfaceView implements SurfaceHolder.Callback, R
     private final PointF position = new PointF(0, 0);
     private final PointF scale = new PointF(1, 1);
     private final PointF focusedPoint = new PointF(0, 0);
+    private int backgroundColor;
     private PlainPlace selectedPlace;
     private PlainPlace fromDirectionMarker;
     private PlainPlace toDirectionMarker;
@@ -125,13 +98,13 @@ public class CanvasView extends SurfaceView implements SurfaceHolder.Callback, R
     @RequiresApi(api = Build.VERSION_CODES.O)
     public CanvasView(Context context) {
         super(context);
-        this.init();
+        this.init(context);
     }
 
     @RequiresApi(api = Build.VERSION_CODES.O)
     public CanvasView(Context context, @Nullable AttributeSet attrs) {
         super(context, attrs);
-        this.init();
+        this.init(context);
     }
 
     @RequiresApi(api = Build.VERSION_CODES.N)
@@ -140,7 +113,7 @@ public class CanvasView extends SurfaceView implements SurfaceHolder.Callback, R
         super.onLayout(changed, left, top, right, bottom);
         this.clientWidth = getWidth();
         this.clientHeight = getHeight();
-        Log.d(TAG, "onLayout: " + getWidth() + " " + getHeight());
+        LogUtil.d(TAG, "onLayout: " + getWidth() + " " + getHeight());
 
         this.boundingClientRect.left = getLeft();
         this.boundingClientRect.top = getTop();
@@ -162,35 +135,43 @@ public class CanvasView extends SurfaceView implements SurfaceHolder.Callback, R
 //
 //        // Checks the orientation of the screen
 //        if (newConfig.orientation == Configuration.ORIENTATION_LANDSCAPE) {
-//            Log.d(TAG, "onConfigurationChanged: ORIENTATION_LANDSCAPE");
+//            LogUtil.d(TAG, "onConfigurationChanged: ORIENTATION_LANDSCAPE");
 //        } else if (newConfig.orientation == Configuration.ORIENTATION_PORTRAIT){
-//            Log.d(TAG, "onConfigurationChanged: ORIENTATION_PORTRAIT");
+//            LogUtil.d(TAG, "onConfigurationChanged: ORIENTATION_PORTRAIT");
 //        }
 //    }
 
     @Override
     public void surfaceCreated(@NonNull SurfaceHolder holder) {
+        LogUtil.d(TAG, "surfaceCreated");
         this.doDrawing = true;
-        new Thread(this).start();
+        this.surfaceThread = new Thread(this);
+        this.surfaceThread.start();
     }
 
     @Override
     public void surfaceChanged(@NonNull SurfaceHolder holder, int format, int width, int height) {
-
+        LogUtil.d(TAG, "surfaceChanged");
     }
 
     @Override
     public void surfaceDestroyed(@NonNull SurfaceHolder holder) {
+        LogUtil.d(TAG, "surfaceDestroyed");
         this.doDrawing = false;
+        try {
+            this.surfaceThread.join();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
     }
 
     @Override
     public void run() {
+        Canvas canvas;
         while (this.doDrawing) {
+            if (!this.surfaceHolder.getSurface().isValid()) continue;
             if (!this.labelComplete || !this.imageComplete) continue;
-            Canvas canvas;
             if ((canvas = this.surfaceHolder.lockCanvas()) != null) {
-
                 if (this.mapAnimation != null) {
                     long t = Math.min(System.currentTimeMillis(), this.mapAnimation.endTime);
                     long lt = this.mapAnimation.currentTime;
@@ -212,7 +193,7 @@ public class CanvasView extends SurfaceView implements SurfaceHolder.Callback, R
 
     @Override
     public boolean onTouchEvent(MotionEvent event){
-//        Log.d(TAG, "onTouchEvent " + event.getAction());
+//        LogUtil.d(TAG, "onTouchEvent " + event.getAction());
         switch (event.getActionMasked()) {
             case MotionEvent.ACTION_MOVE:
                 if (this.doubleTapDown) {
@@ -228,7 +209,7 @@ public class CanvasView extends SurfaceView implements SurfaceHolder.Callback, R
 
     @Override
     public boolean onDown(MotionEvent e) {
-//        Log.d(TAG, "onDown");
+//        LogUtil.d(TAG, "onDown");
         return true;
     }
 
@@ -267,16 +248,16 @@ public class CanvasView extends SurfaceView implements SurfaceHolder.Callback, R
 
     @Override
     public boolean onDoubleTap(MotionEvent e) {
-//        Log.d(TAG, "onDoubleTap");
+//        LogUtil.d(TAG, "onDoubleTap");
         return true;
     }
 
     @Override
     public boolean onDoubleTapEvent(MotionEvent e) {
-//        Log.d(TAG, "onDoubleTapEvent");
+//        LogUtil.d(TAG, "onDoubleTapEvent");
         switch (e.getActionMasked()) {
             case MotionEvent.ACTION_DOWN:
-//                Log.d(TAG, "onDoubleTapEvent ACTION_DOWN");
+//                LogUtil.d(TAG, "onDoubleTapEvent ACTION_DOWN");
                 this.doubleTapDown = true;
                 this.doubleTapMove = false;
                 this.doubleTapDownMotionEventPoint = new PointF(e.getX(), e.getY());
@@ -287,7 +268,7 @@ public class CanvasView extends SurfaceView implements SurfaceHolder.Callback, R
                 this.focusedPoint.y = focusedPoint.y;
                 break;
             case MotionEvent.ACTION_MOVE:
-//                Log.d(TAG, "onDoubleTapEvent ACTION_MOVE");
+//                LogUtil.d(TAG, "onDoubleTapEvent ACTION_MOVE");
                 this.doubleTapMove = true;
                 break;
             case MotionEvent.ACTION_UP:
@@ -303,7 +284,7 @@ public class CanvasView extends SurfaceView implements SurfaceHolder.Callback, R
 
     @Override
     public boolean onScale(ScaleGestureDetector detector) {
-//        Log.d(TAG, "onScale");
+//        LogUtil.d(TAG, "onScale");
         float zoom = detector.getScaleFactor() - 1f;
         PointF focusPoint = this.getTouchPoint(detector.getFocusX(), detector.getFocusY());
         this.focusedPoint.x = focusPoint.x;
@@ -324,23 +305,25 @@ public class CanvasView extends SurfaceView implements SurfaceHolder.Callback, R
     }
 
     @RequiresApi(api = Build.VERSION_CODES.O)
-    private void init() {
+    private void init(Context context) {
+        this.mContext = context;
+
         this.surfaceHolder = getHolder();
         this.surfaceHolder.addCallback(this);
         // 画布透明处理
-        setZOrderOnTop(true);
-        this.surfaceHolder.setFormat(PixelFormat.TRANSLUCENT);
+        setZOrderOnTop(false);
+//        this.surfaceHolder.setFormat(PixelFormat.TRANSLUCENT);
 
 //        setFocusable(true);
 //        setKeepScreenOn(true);
 //        setFocusableInTouchMode(true);
 
-        this.gestureDetector = new GestureDetector(getContext(), this);
+        this.gestureDetector = new GestureDetector(this.mContext, this);
         this.gestureDetector.setOnDoubleTapListener(this);
-        this.scaleGestureDetector = new ScaleGestureDetector(getContext(), this);
+        this.scaleGestureDetector = new ScaleGestureDetector(this.mContext, this);
 
         float dpi = getResources().getDisplayMetrics().density;
-        Log.d(TAG, "dpi: " + dpi);
+        LogUtil.d(TAG, "dpi: " + dpi);
 
         this.imageMap.put("icon", BitmapFactory.decodeResource(getResources(), R.drawable.icon_sprite));
 
@@ -364,6 +347,21 @@ public class CanvasView extends SurfaceView implements SurfaceHolder.Callback, R
         new AssetsJsonThread().start();
     }
 
+    public void pause() {
+        this.doDrawing = false;
+        try {
+            this.surfaceThread.join();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public void resume() {
+        this.doDrawing = true;
+        this.surfaceThread = new Thread(this);
+        this.surfaceThread.start();
+    }
+
     public void setOnPlaceSelectedListener(OnPlaceSelectedListener listener) {
         this.onPlaceSelectedListener = listener;
     }
@@ -371,6 +369,9 @@ public class CanvasView extends SurfaceView implements SurfaceHolder.Callback, R
     private void drawMapInfo(Canvas canvas) {
         canvas.save();
 
+        this.drawPaint.setColor(this.backgroundColor);
+        this.drawPaint.setStyle(Paint.Style.FILL);
+        canvas.drawRect(this.boundingClientRect, this.drawPaint);
         this.drawImage(canvas, this.imageMap.get("map"), 0, 0, this.imgWidth, this.imgHeight, 0, 0, false, false);
 
         if (this.graphicPlaceList != null && this.graphicPlaceList.size() > 0) {
@@ -684,7 +685,7 @@ public class CanvasView extends SurfaceView implements SurfaceHolder.Callback, R
                     if (p.areaCoords == null) {
                         if (p.iconLevel <= 0 || (this.scale.x < p.iconLevel || this.scale.y < p.iconLevel)) return false;
                         PointF point = this.getImageToCanvasPoint(p.location.x , p.location.y);
-                        path.addCircle(point.x, point.y, this.iconSize, Path.Direction.CW);
+                        path.addCircle(point.x, point.y, this.halfIconSize, Path.Direction.CW);
                         if (p.textPosition != null) {
                             float halfWidth = p.textWidth / 2f;
                             float halfHeight = p.textHeight / 2f;
@@ -714,7 +715,7 @@ public class CanvasView extends SurfaceView implements SurfaceHolder.Callback, R
                     }
                     path.computeBounds(boundRect, true);
                     region.setPath(path, new Region((int) boundRect.left,(int) boundRect.top,(int) boundRect.right,(int) boundRect.bottom));
-//                    Log.d(TAG, String.format("%s %s %b", p.name, r.toShortString(), region.contains((int) touchPoint.x, (int) touchPoint.y)));
+//                    LogUtil.d(TAG, String.format("%s %s %b", p.name, r.toShortString(), region.contains((int) touchPoint.x, (int) touchPoint.y)));
                     return region.contains((int) touchPoint.x, (int) touchPoint.y);
                 })
                 .findFirst()
@@ -741,7 +742,7 @@ public class CanvasView extends SurfaceView implements SurfaceHolder.Callback, R
                 .findFirst()
                 .orElse(null);
         if (place != null) {
-            Log.d(TAG, "setSelectedPlace: " + place.getName());
+            LogUtil.d(TAG, "setSelectedPlace: " + place.getName());
             this.onPlaceSelectedListener.onPlaceSelected(place);
         }
     }
@@ -775,7 +776,7 @@ public class CanvasView extends SurfaceView implements SurfaceHolder.Callback, R
 
     @RequiresApi(api = Build.VERSION_CODES.N)
     private void resetLayout() throws Exception {
-        Log.d(TAG, "setMapImage: " + this.resourceImg.getWidth() + " " + this.resourceImg.getHeight());
+        LogUtil.d(TAG, "setMapImage: " + this.resourceImg.getWidth() + " " + this.resourceImg.getHeight());
         this.rotate = getMapRotation(this.resourceImg.getWidth(), this.resourceImg.getHeight());
         GraphicPlace.imgWidth = this.resourceImg.getWidth();
         GraphicPlace.imgHeight = this.resourceImg.getHeight();
@@ -860,7 +861,7 @@ public class CanvasView extends SurfaceView implements SurfaceHolder.Callback, R
     public void setPlaceList(List<PlainPlace> placeList) {
         this.placeList = placeList;
 //        for (PlainPlace place : placeList) {
-//            Log.d(TAG, place.toString());
+//            LogUtil.d(TAG, place.toString());
 //        }
 
         if (this.imageComplete) {
@@ -871,19 +872,30 @@ public class CanvasView extends SurfaceView implements SurfaceHolder.Callback, R
     }
 
     @RequiresApi(api = Build.VERSION_CODES.N)
-    public void setMapImage(Bitmap resource) throws Exception {
+    public void setMapImage(Bitmap resource) {
         this.resourceImg = resource;
 
-        post(new Runnable() {
-            @Override
-            public void run() {
-                setBackgroundColor(resource.getPixel(2, 2));
-            }
-        });
+//        this.backgroundColor = resource.getPixel(2, 2);
 
-        this.resetLayout();
+//        post(new Runnable() {
+//            @Override
+//            public void run() {
+//                setBackgroundColor(resource.getPixel(2, 2));
+//            }
+//        });
+
+        try {
+            this.resetLayout();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
 
         this.imageComplete = true;
+    }
+
+    @Override
+    public void setBackgroundColor(int backgroundColor) {
+        this.backgroundColor = backgroundColor;
     }
 
     @RequiresApi(api = Build.VERSION_CODES.N)
@@ -902,7 +914,7 @@ public class CanvasView extends SurfaceView implements SurfaceHolder.Callback, R
         this.graphicPlaceList.addAll(tempPlaceList);
 
 //        for (GraphicPlace place : this.graphicPlaceList) {
-//            Log.d(TAG, place.toString());
+//            LogUtil.d(TAG, place.toString());
 //        }
 
         this.refreshTextPosition();
@@ -934,7 +946,7 @@ public class CanvasView extends SurfaceView implements SurfaceHolder.Callback, R
             super.run();
             ObjectMapper mapper = new ObjectMapper();
             try {
-                Map<String, Object> map = mapper.readValue(JsonAssetsReader.getJsonString("json/iconSpriteInfo.json", getContext()), Map.class);
+                Map<String, Object> map = mapper.readValue(JsonAssetsReader.getJsonString("json/iconSpriteInfo.json", mContext), Map.class);
                 for (Map.Entry<String, Object> entry : map.entrySet()) {
                     Map<String, Object> value = (Map<String, Object>) entry.getValue();
                     int row = (Integer) value.get("row");

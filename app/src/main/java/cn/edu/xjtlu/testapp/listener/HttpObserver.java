@@ -1,18 +1,12 @@
 package cn.edu.xjtlu.testapp.listener;
 
 import android.app.Activity;
-import android.util.Log;
 
-import java.net.ConnectException;
-import java.net.SocketTimeoutException;
-import java.net.UnknownHostException;
-
-import cn.edu.xjtlu.testapp.api.Result;
+import cn.edu.xjtlu.testapp.domain.response.Result;
 import cn.edu.xjtlu.testapp.util.HttpUtil;
 import cn.edu.xjtlu.testapp.util.LoadingUtil;
 import io.reactivex.annotations.NonNull;
 import io.reactivex.disposables.Disposable;
-import retrofit2.HttpException;
 
 public class HttpObserver<T> extends ObserverAdapter<T> {
     private static final String TAG = HttpObserver.class.getSimpleName();

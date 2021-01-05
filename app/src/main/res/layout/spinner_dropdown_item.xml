@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:paddingVertical="0.5dp">
+    <CheckedTextView
+        android:id="@+id/ctv_floor_list_name"
+        android:layout_width="@dimen/button_size"
+        android:layout_height="wrap_content"
+        android:paddingVertical="10dp"
+        android:textColor="@drawable/spinner_dropdown_item_tc_selector"
+        android:textSize="@dimen/spinner_dropdown_text_size"
+        android:background="@drawable/spinner_dropdown_item_bg_selector"
+        android:layout_centerInParent="true"
+        android:gravity="center"
+        android:textAlignment="center"
+        android:checked="false" />
+</RelativeLayout>

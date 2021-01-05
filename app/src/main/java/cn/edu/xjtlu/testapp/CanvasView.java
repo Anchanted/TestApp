@@ -83,8 +83,11 @@ public class CanvasView extends SurfaceView implements SurfaceHolder.Callback, R
     private PlainPlace selectedPlace;
     private PlainPlace fromDirectionMarker;
     private PlainPlace toDirectionMarker;
-    private int iconSize;
-    private int halfIconSize;
+    private PointF location;
+    private float iconSize;
+    private float halfIconSize;
+    private float locationIconSize;
+    private float halfLocationIconSize;
     private MapAnimation mapAnimation;
     private boolean labelComplete;
     private boolean imageComplete;
@@ -94,6 +97,8 @@ public class CanvasView extends SurfaceView implements SurfaceHolder.Callback, R
     private float clientHeight;
     private int rotate;
     private List<PlainPlace> placeList;
+    private boolean locationActivated;
+    private Integer direction;
 
     @RequiresApi(api = Build.VERSION_CODES.O)
     public CanvasView(Context context) {
@@ -326,9 +331,13 @@ public class CanvasView extends SurfaceView implements SurfaceHolder.Callback, R
         LogUtil.d(TAG, "dpi: " + dpi);
 
         this.imageMap.put("icon", BitmapFactory.decodeResource(getResources(), R.drawable.icon_sprite));
+        this.imageMap.put("locationProbe", BitmapFactory.decodeResource(getResources(), R.drawable.location_probe));
+        this.imageMap.put("locationMarker", BitmapFactory.decodeResource(getResources(), R.drawable.location_marker));
 
         this.iconSize = getResources().getDimensionPixelSize(R.dimen.icon_size);
         this.halfIconSize = this.iconSize / 2;
+        this.locationIconSize = this.iconSize * 1.5f;
+        this.halfLocationIconSize = this.iconSize * 1.5f;
 
         this.textPaint.setAntiAlias(true);
         this.textPaint.setTextSize(getResources().getDimensionPixelSize(R.dimen.text_size));
@@ -444,6 +453,13 @@ public class CanvasView extends SurfaceView implements SurfaceHolder.Callback, R
                     canvas.restore();
                 }
             }
+        }
+
+        if (this.locationActivated && this.location != null) {
+            if (this.direction != null) {
+                this.drawImage(canvas, this.imageMap.get("locationProbe"), this.location.x, this.location.y, this.locationIconSize, this.locationIconSize, this.locationIconSize / 2f, this.locationIconSize / 2f, true, false, this.direction);
+            }
+            this.drawImage(canvas, this.imageMap.get("locationMarker"), this.location.x, this.location.y, this.locationIconSize, this.locationIconSize, this.locationIconSize / 2f, this.locationIconSize / 2f, true, false);
         }
 
         canvas.restore();
@@ -574,7 +590,9 @@ public class CanvasView extends SurfaceView implements SurfaceHolder.Callback, R
             canvas.translate(tPoint.x, tPoint.y);
             canvas.rotate(degree);
             canvas.translate(-tPoint.x, -tPoint.y);
-            canvas.translate(translateX, translateY);
+            if (translateX != null && translateY != null) {
+                canvas.translate(translateX, translateY);
+            }
         }
 
         float scaleX = this.scale.x * this.scaleAdaption;
@@ -675,7 +693,7 @@ public class CanvasView extends SurfaceView implements SurfaceHolder.Callback, R
     private Object isPointInItem(float pointX, float pointY) {
         // click on places
         PointF touchPoint = this.getTouchPoint(pointX, pointY);
-        int iconSizeSquared = this.iconSize * this.iconSize;
+        int iconSizeSquared = (int) (this.iconSize * this.iconSize);
         RectF boundRect = new RectF();
         Object place = this.graphicPlaceList.stream()
                 .filter(p -> {
@@ -918,6 +936,20 @@ public class CanvasView extends SurfaceView implements SurfaceHolder.Callback, R
 //        }
 
         this.refreshTextPosition();
+    }
+
+    public void setLocation(PointF point) {
+        if ((point.x >= 0 && point.x <= this.imgWidth) && (point.y >= 0 && point.y <= this.imgHeight)) {
+            this.location = point;
+        }
+    }
+
+    public void setDirection(int direction) {
+        this.direction = direction;
+    }
+
+    public void setLocationActivated(boolean flag) {
+        this.locationActivated = flag;
     }
 
     class MapAnimation {

@@ -20,46 +20,112 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent" />
 
-    <LinearLayout
-        android:id="@+id/button_group_left_top"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_alignParentStart="true"
-        android:layout_alignParentTop="true"
-        android:orientation="vertical"
-        android:layout_marginStart="@dimen/button_group_margin"
-        android:layout_marginTop="@dimen/button_group_margin"
-        android:visibility="invisible">
+    <RelativeLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
 
-        <Button
-            android:id="@+id/campusBtn"
-            style="@style/FunctionButton"
-            android:text="@string/icon_map"
-            android:layout_marginBottom="@dimen/button_margin"
-            tools:ignore="SpUsage">
-        </Button>
+        <LinearLayout
+            android:id="@+id/button_group_left_top"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentStart="true"
+            android:layout_alignParentTop="true"
+            android:orientation="vertical"
+            android:layout_marginStart="@dimen/button_group_margin"
+            android:layout_marginTop="@dimen/button_group_margin"
+            android:visibility="invisible">
 
-        <TextView
-            android:id="@+id/codeTextView"
-            android:layout_width="@dimen/button_size"
-            android:layout_height="@dimen/spinner_height"
-            android:background="@drawable/code_text_view"
-            android:textColor="@color/bs_secondary"
-            android:gravity="center"
-            android:textSize="@dimen/floor_info_text_size"
-            android:textStyle="bold"/>
-        <Spinner
-            android:id="@+id/floorSpinner"
-            android:layout_width="@dimen/button_size"
-            android:layout_height="@dimen/spinner_height"
-            android:background="@drawable/floor_spinner"
-            android:textColor="@color/white"
-            android:gravity="center"
-            android:textSize="@dimen/floor_info_text_size"
-            android:textStyle="bold"
-            android:spinnerMode="dropdown"
-            android:dropDownVerticalOffset="@dimen/spinner_height"
-            android:dropDownHeight="300dp"
-            android:popupBackground="@color/white" />
-    </LinearLayout>
+            <Button
+                android:id="@+id/campusBtn"
+                style="@style/FunctionButton"
+                android:text="@string/icon_map"
+                android:layout_marginBottom="@dimen/button_margin"
+                tools:ignore="SpUsage">
+            </Button>
+
+            <TextView
+                android:id="@+id/codeTextView"
+                android:layout_width="@dimen/button_size"
+                android:layout_height="@dimen/spinner_text_height"
+                android:background="@drawable/code_text_view"
+                android:textColor="@color/bs_secondary"
+                android:gravity="center"
+                android:textSize="@dimen/spinner_text_size"
+                android:textStyle="bold"/>
+            <Spinner
+                android:id="@+id/floorSpinner"
+                android:layout_width="@dimen/button_size"
+                android:layout_height="@dimen/spinner_height"
+                android:background="@drawable/floor_spinner"
+                android:textColor="@color/white"
+                android:gravity="center"
+                android:textSize="@dimen/spinner_text_size"
+                android:textStyle="bold"
+                android:spinnerMode="dropdown"
+                android:dropDownVerticalOffset="@dimen/spinner_height"
+                android:popupBackground="#FF888888" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/button_group_right_bottom"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentEnd="true"
+            android:layout_alignParentBottom="true"
+            android:orientation="vertical"
+            android:layout_marginEnd="@dimen/button_group_margin"
+            android:layout_marginBottom="@dimen/button_group_margin"
+            android:visibility="invisible">
+
+            <ToggleButton
+                android:id="@+id/locationBtn"
+                style="@style/FunctionButton"
+                android:textOff="@string/icon_location"
+                android:textOn="@string/icon_location"
+                android:layout_marginTop="@dimen/button_margin"
+                tools:ignore="SpUsage">
+            </ToggleButton>
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:layout_alignParentStart="true"
+            android:layout_alignParentBottom="true"
+            android:layout_marginStart="@dimen/button_group_margin"
+            android:layout_marginBottom="@dimen/button_group_margin">
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+                <TextView
+                    android:id="@+id/tv_latitude"
+                    android:layout_width="100dp"
+                    android:layout_height="30dp"
+                    android:textSize="20sp"
+                    android:background="@color/white"
+                    android:textColor="@color/black"
+                    android:text="0" />
+                <TextView
+                    android:id="@+id/tv_longitude"
+                    android:layout_width="100dp"
+                    android:layout_height="30dp"
+                    android:layout_marginStart="10dp"
+                    android:textSize="20sp"
+                    android:background="@color/white"
+                    android:textColor="@color/black"
+                    android:text="0" />
+            </LinearLayout>
+            <TextView
+                android:id="@+id/tv_orientation"
+                android:layout_width="100dp"
+                android:layout_height="30dp"
+                android:layout_marginTop="10dp"
+                android:textSize="20sp"
+                android:background="@color/white"
+                android:textColor="@color/black"
+                android:text="0" />
+        </LinearLayout>
+    </RelativeLayout>
 </RelativeLayout>

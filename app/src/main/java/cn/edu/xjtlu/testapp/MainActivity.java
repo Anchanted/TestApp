@@ -4,27 +4,37 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 
+import android.Manifest;
 import android.app.AlertDialog;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.res.Configuration;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.graphics.PointF;
 import android.graphics.Typeface;
 import android.graphics.drawable.Drawable;
+import android.hardware.Sensor;
+import android.hardware.SensorEvent;
+import android.hardware.SensorEventListener;
+import android.location.Location;
+import android.location.LocationListener;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
+import android.provider.Settings;
 import android.view.View;
 import android.view.Window;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.AutoCompleteTextView;
 import android.widget.Button;
+import android.widget.CompoundButton;
 import android.widget.LinearLayout;
 import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
+import android.widget.ToggleButton;
 
 import com.bumptech.glide.Glide;
 import com.bumptech.glide.request.target.CustomTarget;
@@ -32,12 +42,17 @@ import com.bumptech.glide.request.transition.Transition;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import java.lang.reflect.Field;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
 import butterknife.BindView;
+import butterknife.OnCheckedChanged;
+import butterknife.OnClick;
+import cn.edu.xjtlu.testapp.adapter.FloorArrayAdapter;
 import cn.edu.xjtlu.testapp.api.Api;
+import cn.edu.xjtlu.testapp.domain.Point;
 import cn.edu.xjtlu.testapp.domain.response.Result;
 import cn.edu.xjtlu.testapp.domain.Floor;
 import cn.edu.xjtlu.testapp.domain.Place;
@@ -47,63 +62,71 @@ import cn.edu.xjtlu.testapp.listener.OnPlaceSelectedListener;
 import cn.edu.xjtlu.testapp.util.AESUtil;
 import cn.edu.xjtlu.testapp.util.LoadingUtil;
 import cn.edu.xjtlu.testapp.activity.BaseCommonActivity;
+import cn.edu.xjtlu.testapp.util.LocationUtil;
 import cn.edu.xjtlu.testapp.util.LogUtil;
 import cn.edu.xjtlu.testapp.util.ResourceUtil;
+import cn.edu.xjtlu.testapp.util.SensorUtil;
+import cn.edu.xjtlu.testapp.util.ToastUtil;
+import cn.edu.xjtlu.testapp.util.UnitConverter;
+import permissions.dispatcher.NeedsPermission;
+import permissions.dispatcher.OnNeverAskAgain;
+import permissions.dispatcher.OnPermissionDenied;
+import permissions.dispatcher.OnShowRationale;
+import permissions.dispatcher.PermissionRequest;
+import permissions.dispatcher.RuntimePermissions;
 
+@RuntimePermissions
 public class MainActivity extends BaseCommonActivity {
     private static final String TAG = MainActivity.class.getSimpleName();
 
-//    @BindView(R.id.canvasView)
+    @BindView(R.id.canvasView)
     public CanvasView cv;
-//    @BindView(R.id.campusBtn)
+    @BindView(R.id.campusBtn)
     public Button campusBtn;
-//    @BindView(R.id.codeTextView)
+    @BindView(R.id.locationBtn)
+    public ToggleButton locationBtn;
+    @BindView(R.id.codeTextView)
     public TextView codeTv;
-//    @BindView(R.id.floorSpinner)
+    @BindView(R.id.floorSpinner)
     public Spinner floorSpinner;
+
+    @BindView(R.id.button_group_left_top)
+    public LinearLayout buttonGroupLT;
+    @BindView(R.id.button_group_right_bottom)
+    public LinearLayout buttonGroupRB;
+
+    @BindView(R.id.tv_latitude)
+    public TextView tvLatitude;
+    @BindView(R.id.tv_longitude)
+    public TextView tvLongitude;
+    @BindView(R.id.tv_orientation)
+    public TextView tvOrientation;
 
     private Handler mHandler;
     private Thread mThread;
+    private LocationUtil locationUtil;
+    private SensorUtil sensorUtil;
 
     private Integer floorId;
     private Integer buildingId;
 
-    @RequiresApi(api = Build.VERSION_CODES.P)
     @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_main);
-
+    protected void initViews() {
+        super.initViews();
         getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR | View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR);
 
 //        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
 
-//        Integer floorId = 51;
-//        Integer buildingId = 12;
-//        Integer floorId = null;
-//        Integer buildingId = null;
-        this.floorId = (Integer) getIntent().getSerializableExtra("floorId");
-        this.buildingId = (Integer) getIntent().getSerializableExtra("buildingId");
-
-        if (this.floorId != null && this.buildingId != null) {
-            this.campusBtn = findViewById(R.id.campusBtn);
-            this.codeTv = findViewById(R.id.codeTextView);
-            this.floorSpinner = findViewById(R.id.floorSpinner);
-
-            Typeface iconfont = Typeface.createFromAsset(getAssets(), "font/iconfont.ttf");
-            this.campusBtn.setTypeface(iconfont);
-            this.campusBtn.setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View v) {
-                    startActivityAndFinish(MainActivity.class);
-                }
-            });
-
-            LinearLayout buttonGroupLT = (LinearLayout) findViewById(R.id.button_group_left_top);
+        Typeface iconfont = Typeface.createFromAsset(getAssets(), "font/iconfont.ttf");
+        campusBtn.setTypeface(iconfont);
+        locationBtn.setTypeface(iconfont);
+        if (floorId != null && buildingId != null) {
             buttonGroupLT.setVisibility(View.VISIBLE);
+            buttonGroupRB.setVisibility(View.INVISIBLE);
+        } else {
+            buttonGroupLT.setVisibility(View.INVISIBLE);
+            buttonGroupRB.setVisibility(View.VISIBLE);
         }
-
-        this.cv = findViewById(R.id.canvasView);
 
         LoadingUtil.showLoading(this);
         mHandler = new Handler();
@@ -114,56 +137,11 @@ public class MainActivity extends BaseCommonActivity {
             }
         };
         mHandler.postDelayed(mThread, 3000);
+    }
 
-        cv.setOnPlaceSelectedListener(new OnPlaceSelectedListener() {
-            @Override
-            public void onPlaceSelected(PlainPlace place) {
-                Api.getInstance().getPlaceInfo(place.getId()).subscribe(new HttpObserver<Result<String>>() {
-                    @RequiresApi(api = Build.VERSION_CODES.N)
-                    @Override
-                    public void onSucceed(@io.reactivex.annotations.NonNull Result<String> result) {
-                        ObjectMapper mapper = new ObjectMapper();
-                        try {
-                            String string = AESUtil.decrypt(result.getData());
-                            JsonNode rootNode = mapper.readTree(string);
-                            Place place = mapper.readValue(rootNode.get("place").toString(), Place.class);
-                            LogUtil.d(TAG, "onSucceed: " + place);
-
-                            if ("building".equals(place.getPlaceType())) {
-                                Map<String, Object> extraInfo = (Map<String, Object>) place.getExtraInfo();
-                                List<Floor> floorList = Arrays.asList(mapper.readValue(mapper.writeValueAsString(extraInfo.get("floorList")), Floor[].class));
-                                String[] floorArr = floorList.stream().map(Floor::getName).toArray(String[]::new);
-                                AlertDialog.Builder dialog = new AlertDialog.Builder(MainActivity.this);
-                                    dialog.setTitle(getString(R.string.choose_floor, place.getCode()))
-                                            .setItems(floorArr, new DialogInterface.OnClickListener() {
-                                                @Override
-                                                public void onClick(DialogInterface dialog, int index) {
-                                                    Toast.makeText(getApplicationContext(), floorArr[index], Toast.LENGTH_SHORT).show();
-
-                                                    Intent intent = new Intent(MainActivity.this, MainActivity.class);
-                                                    intent.putExtra("floorId", floorList.get(index).getId());
-                                                    intent.putExtra("buildingId", place.getId());
-
-                                                    startActivityAndFinish(intent);
-                                                }
-                                            })
-                                            .setNegativeButton(getResources().getText(R.string.button_cancel), null)
-                                            .create();
-                                dialog.show();
-                            }
-                        } catch (Exception e) {
-                            e.printStackTrace();
-                        }
-                    }
-
-                    @Override
-                    public boolean onFailed(Result<String> data, @io.reactivex.annotations.NonNull Throwable e) {
-                        e.printStackTrace();
-                        return false;
-                    }
-                });
-            }
-        });
+    @Override
+    protected void initData() {
+        super.initData();
 
         Api.getInstance().getFloorInfo(this.floorId, this.buildingId).subscribe(new HttpObserver<Result<String>>() {
             @RequiresApi(api = Build.VERSION_CODES.N)
@@ -193,8 +171,9 @@ public class MainActivity extends BaseCommonActivity {
                                 position = i;
                             }
                         }
-                        ArrayAdapter<String> adapter = new ArrayAdapter<>(MainActivity.this, android.R.layout.simple_spinner_item, floorNameArr);
-                        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+//                        ArrayAdapter<String> adapter = new ArrayAdapter<>(MainActivity.this, android.R.layout.simple_spinner_item, floorNameArr);
+//                        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+                        FloorArrayAdapter adapter = new FloorArrayAdapter(getMainActivity(), floorList, position);
                         floorSpinner.setAdapter(adapter);
                         floorSpinner.setSelection(position);
                         floorSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
@@ -202,6 +181,7 @@ public class MainActivity extends BaseCommonActivity {
                             public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
                                 LogUtil.d(TAG, "onItemSelected: " + floorNameArr[position]);
                                 Floor floor = floorList.get(position);
+                                if (floor == null) return;
                                 if (floor.getId().equals(floorId)) return;
                                 Intent intent = new Intent(MainActivity.this, MainActivity.class);
                                 intent.putExtra("floorId", floorList.get(position).getId());
@@ -230,21 +210,116 @@ public class MainActivity extends BaseCommonActivity {
     }
 
     @Override
+    protected void initListeners() {
+        super.initListeners();
+
+        locationUtil = LocationUtil.getInstance(getMainActivity(), location -> {
+            if (location != null) {
+                tvLatitude.setText(String.valueOf(location.getLatitude()));
+                tvLongitude.setText(String.valueOf(location.getLongitude()));
+//                LogUtil.d(TAG, location.getLatitude() + " " + location.getLongitude());
+//                ToastUtil.shortToastSuccess(location.getLatitude() + " " + location.getLongitude());
+//                cv.setLocation(LocationUtil.geoToImage(new Point(location.getLatitude(), location.getLongitude())));
+                cv.setLocation(new PointF(600, 500));
+            }
+        });
+
+        sensorUtil = SensorUtil.getInstance(getMainActivity(), direction -> {
+            tvOrientation.setText(String.valueOf(direction));
+            cv.setDirection(-45);
+//                LogUtil.d(TAG, "" + direction);
+        });
+
+        cv.setOnPlaceSelectedListener(new OnPlaceSelectedListener() {
+            @Override
+            public void onPlaceSelected(PlainPlace place) {
+                Api.getInstance().getPlaceInfo(place.getId()).subscribe(new HttpObserver<Result<String>>() {
+                    @RequiresApi(api = Build.VERSION_CODES.N)
+                    @Override
+                    public void onSucceed(@io.reactivex.annotations.NonNull Result<String> result) {
+                        ObjectMapper mapper = new ObjectMapper();
+                        try {
+                            String string = AESUtil.decrypt(result.getData());
+                            JsonNode rootNode = mapper.readTree(string);
+                            Place place = mapper.readValue(rootNode.get("place").toString(), Place.class);
+                            LogUtil.d(TAG, "onSucceed: " + place);
+
+                            if ("building".equals(place.getPlaceType())) {
+                                Map<String, Object> extraInfo = (Map<String, Object>) place.getExtraInfo();
+                                List<Floor> floorList = Arrays.asList(mapper.readValue(mapper.writeValueAsString(extraInfo.get("floorList")), Floor[].class));
+                                String[] floorArr = floorList.stream().map(Floor::getName).toArray(String[]::new);
+                                AlertDialog.Builder dialog = new AlertDialog.Builder(MainActivity.this);
+                                dialog.setTitle(getString(R.string.choose_floor, place.getCode()))
+                                        .setItems(floorArr, (dialog1, index) -> {
+                                            Toast.makeText(getApplicationContext(), floorArr[index], Toast.LENGTH_SHORT).show();
+
+                                            Intent intent = new Intent(MainActivity.this, MainActivity.class);
+                                            intent.putExtra("floorId", floorList.get(index).getId());
+                                            intent.putExtra("buildingId", place.getId());
+
+                                            startActivityAndFinish(intent);
+                                        })
+                                        .setNegativeButton(getResources().getText(R.string.button_cancel), null)
+                                        .create();
+                                dialog.show();
+                            }
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                        }
+                    }
+
+                    @Override
+                    public boolean onFailed(Result<String> data, @io.reactivex.annotations.NonNull Throwable e) {
+                        e.printStackTrace();
+                        return false;
+                    }
+                });
+            }
+        });
+    }
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
+
+//        Integer floorId = 51;
+//        Integer buildingId = 12;
+//        Integer floorId = null;
+//        Integer buildingId = null;
+        floorId = (Integer) getIntent().getSerializableExtra("floorId");
+        buildingId = (Integer) getIntent().getSerializableExtra("buildingId");
+    }
+
+    @Override
     protected void onPause() {
+        LogUtil.d(TAG, "onPause");
         super.onPause();
-        this.cv.pause();
+        cv.pause();
+        if (locationBtn.isChecked()) {
+            locationUtil.removeUpdates();
+            sensorUtil.unregisterListener();
+        }
     }
 
     @Override
     protected void onResume() {
         super.onResume();
-        this.cv.resume();
+        cv.resume();
+        if (locationBtn.isChecked()) {
+            locationUtil.requestLocationUpdates();
+            sensorUtil.registerListener();
+        }
     }
 
     @Override
     protected void onDestroy() {
         mHandler.removeCallbacks(mThread);
         super.onDestroy();
+        if (locationBtn.isChecked()) {
+            locationUtil.removeUpdates();
+            sensorUtil.unregisterListener();
+        }
     }
 
     @Override
@@ -338,5 +413,93 @@ public class MainActivity extends BaseCommonActivity {
                 }
             }
         }).start();
+    }
+
+    @OnClick(R.id.campusBtn)
+    public void onCampusBtnClick(View v) {
+        startActivityAndFinish(MainActivity.class);
+    }
+
+    @OnCheckedChanged(R.id.locationBtn)
+    public void onLocationBtnClick(CompoundButton buttonView, boolean isChecked) {
+        if (isChecked) {
+            checkLocationPermission();
+        } else {
+            locationUtil.removeUpdates();
+            sensorUtil.unregisterListener();
+
+            cv.setLocationActivated(false);
+        }
+    }
+
+    private void checkLocationPermission() {
+        MainActivityPermissionsDispatcher.onPermissionGrantedWithPermissionCheck(this);
+    }
+
+    @NeedsPermission({
+            Manifest.permission.ACCESS_COARSE_LOCATION,
+            Manifest.permission.ACCESS_FINE_LOCATION
+    })
+    void onPermissionGranted() {
+        if (!locationUtil.canGetLocation()) {
+            new AlertDialog.Builder(this)
+                    .setMessage("Location Service is no enabled. Do you want to go to the Setting menu?")
+                    .setPositiveButton("Settings", new DialogInterface.OnClickListener() {
+                        @Override
+                        public void onClick(DialogInterface dialog, int which) {
+                            startActivity(new Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS));
+                        }
+                    })
+                    .setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
+                        @Override
+                        public void onClick(DialogInterface dialog, int which) {
+
+                        }
+                    })
+                    .show();
+        } else {
+//            Location location = locationUtil.getLocation();
+//            LogUtil.d(TAG, "" + location);
+//            LogUtil.d(TAG, location.getLatitude() + " " + location.getLongitude());
+            locationUtil.requestLocationUpdates();
+            sensorUtil.registerListener();
+
+            cv.setLocationActivated(true);
+        }
+    }
+
+    @OnShowRationale({
+            Manifest.permission.ACCESS_COARSE_LOCATION,
+            Manifest.permission.ACCESS_FINE_LOCATION
+    })
+    void showRequestPermission(PermissionRequest request) {
+        new AlertDialog.Builder(this)
+                .setMessage("我们需要权限，请同意，否则无法使用")
+                .setPositiveButton("接受", (dialog, which) -> request.proceed())
+                .setNegativeButton("拒绝", (dialog, which) -> request.cancel())
+                .show();
+    }
+
+    @OnPermissionDenied({
+            Manifest.permission.ACCESS_COARSE_LOCATION,
+            Manifest.permission.ACCESS_FINE_LOCATION
+    })
+    void showDenied() {
+
+    }
+
+    @OnNeverAskAgain({
+            Manifest.permission.ACCESS_COARSE_LOCATION,
+            Manifest.permission.ACCESS_FINE_LOCATION
+    })
+    void showNeverAsk() {
+
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+
+        MainActivityPermissionsDispatcher.onRequestPermissionsResult(this, requestCode, grantResults);
     }
 }

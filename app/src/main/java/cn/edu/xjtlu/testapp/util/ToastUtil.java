@@ -30,6 +30,10 @@ public class ToastUtil {
         Toasty.success(context, id, Toasty.LENGTH_SHORT).show();
     }
 
+    public static void shortToastSuccess(String message) {
+        Toasty.success(context, message, Toasty.LENGTH_SHORT).show();
+    }
+
     public static void longToastSuccess(@StringRes int id) {
         Toasty.success(context, id, Toasty.LENGTH_LONG).show();
     }

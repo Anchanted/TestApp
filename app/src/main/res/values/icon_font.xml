@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="icon_map" translatable="false">&#xe614;</string>
+    <string name="icon_location" translatable="false">&#xe65f;</string>
 
 </resources>

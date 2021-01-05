@@ -9,13 +9,13 @@ public class PreferencesUtil {
     private static final String NAME = "xap";
     private static final String SHOW_GUIDE = "SHOW_GUIDE";
     private static PreferencesUtil instance;
-    private final Context context;
+    private final Context mContext;
     private final SharedPreferences preferences;
 
-    public PreferencesUtil(Context context) {
-        this.context = context.getApplicationContext();
+    private PreferencesUtil(Context context) {
+        mContext = context.getApplicationContext();
 
-        this.preferences = this.context.getSharedPreferences(NAME, Context.MODE_PRIVATE);
+        preferences = mContext.getSharedPreferences(NAME, Context.MODE_PRIVATE);
     }
 
     public static PreferencesUtil getInstance(Context context) {

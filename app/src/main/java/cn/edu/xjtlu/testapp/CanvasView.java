@@ -1,5 +1,6 @@
 package cn.edu.xjtlu.testapp;
 
+import android.animation.ValueAnimator;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
@@ -38,6 +39,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import cn.edu.xjtlu.testapp.graphic.AnimationTransition;
 import cn.edu.xjtlu.testapp.graphic.BBox;
 import cn.edu.xjtlu.testapp.graphic.BCircle;
 import cn.edu.xjtlu.testapp.graphic.GraphicPlace;
@@ -74,10 +76,8 @@ public class CanvasView extends SurfaceView implements SurfaceHolder.Callback, R
     private float canvasHeight;
     private float imgWidth;
     private float imgHeight;
-    private float scaleAdaption;
-    private final PointF positionAdaption = new PointF();
-    private final PointF position = new PointF(0, 0);
-    private final PointF scale = new PointF(1, 1);
+    private final AnimationTransition transitionAdaption = new AnimationTransition();
+    private final AnimationTransition transition = new AnimationTransition(0, 0, 1, 1);
     private final PointF focusedPoint = new PointF(0, 0);
     private int backgroundColor;
     private PlainPlace selectedPlace;
@@ -89,6 +89,7 @@ public class CanvasView extends SurfaceView implements SurfaceHolder.Callback, R
     private float locationIconSize;
     private float halfLocationIconSize;
     private MapAnimation mapAnimation;
+    private ValueAnimator mapAnimator;
     private boolean labelComplete;
     private boolean imageComplete;
 
@@ -183,8 +184,9 @@ public class CanvasView extends SurfaceView implements SurfaceHolder.Callback, R
                     float deltaT = t - lt;
                     float deltaTranslateX = deltaT / this.mapAnimation.duration * this.mapAnimation.deltaTranslateX;
                     float deltaTranslateY = deltaT / this.mapAnimation.duration * this.mapAnimation.deltaTranslateY;
-                    float deltaScale = deltaT / this.mapAnimation.duration * this.mapAnimation.deltaScale;
-                    this.manipulateMap(deltaTranslateX, deltaTranslateY, deltaScale);
+                    float deltaScaleX = deltaT / this.mapAnimation.duration * this.mapAnimation.deltaScaleX;
+                    float deltaScaleY = deltaT / this.mapAnimation.duration * this.mapAnimation.deltaScaleY;
+                    this.manipulateMap(new AnimationTransition(deltaTranslateX, deltaTranslateY, deltaScaleX, deltaScaleY));
                     this.mapAnimation.currentTime = t;
                     if (t >= this.mapAnimation.endTime) this.mapAnimation = null;
                 }
@@ -203,7 +205,8 @@ public class CanvasView extends SurfaceView implements SurfaceHolder.Callback, R
             case MotionEvent.ACTION_MOVE:
                 if (this.doubleTapDown) {
                     float distance = event.getY() - this.doubleTapDownMotionEventPoint.y;
-                    this.manipulateMap((distance - this.lastDoubleTapMotionEventDistance) / 400);
+                    float scale = (distance - this.lastDoubleTapMotionEventDistance) / 400;
+                    this.manipulateMap(new AnimationTransition(0, 0, scale, scale));
                     this.lastDoubleTapMotionEventDistance = distance;
                     this.refreshTextPosition();
                 }
@@ -230,7 +233,7 @@ public class CanvasView extends SurfaceView implements SurfaceHolder.Callback, R
 
     @Override
     public boolean onScroll(MotionEvent e1, MotionEvent e2, float distanceX, float distanceY) {
-        this.manipulateMap(-distanceX, -distanceY);
+        this.manipulateMap(new AnimationTransition(-distanceX, -distanceY, 0, 0));
         return true;
     }
 
@@ -280,7 +283,7 @@ public class CanvasView extends SurfaceView implements SurfaceHolder.Callback, R
                 this.doubleTapDown = false;
 
                 if (!this.doubleTapMove) {
-                    this.mapAnimation = new MapAnimation(0, 0, 0.5f, 100);
+                    this.mapAnimation = new MapAnimation(0, 0, 0.5f, 0.5f, 100);
                 }
                 break;
         }
@@ -294,7 +297,7 @@ public class CanvasView extends SurfaceView implements SurfaceHolder.Callback, R
         PointF focusPoint = this.getTouchPoint(detector.getFocusX(), detector.getFocusY());
         this.focusedPoint.x = focusPoint.x;
         this.focusedPoint.y = focusPoint.y;
-        this.manipulateMap(zoom * 2);
+        this.manipulateMap(new AnimationTransition(0, 0, zoom * 2, zoom * 2));
         this.refreshTextPosition();
         return true;
     }
@@ -421,7 +424,7 @@ public class CanvasView extends SurfaceView implements SurfaceHolder.Callback, R
                 if (this.fromDirectionMarker != null && place.id == this.fromDirectionMarker.getId()) continue;
                 if (this.toDirectionMarker != null && place.id == this.toDirectionMarker.getId()) continue;
                 // place not to display
-                if (place.iconLevel == 0 || (this.scale.x < place.iconLevel || this.scale.y < place.iconLevel)) continue;
+                if (place.iconLevel == 0 || (this.transition.scaleX < place.iconLevel || this.transition.scaleY < place.iconLevel)) continue;
 //                this.drawImage(canvas, this.imageMap.get("icon"), (float) place.getLocation().getX(), (float) place.getLocation().getY(), size, size, size/2, size/2, true, true,
 //                        (iconSpriteInfo.get(place.iconType).get("column") - 1) * iconSpriteInfo.get(place.iconType).get("width"), (iconSpriteInfo.get(place.iconType).get("row") - 1) * iconSpriteInfo.get(place.iconType).get("height"), iconSpriteInfo.get(place.iconType).get("width"), iconSpriteInfo.get(place.iconType).get("height"));
                 this.drawImage(canvas, place.iconImg, (float) place.location.x, (float) place.location.y, this.iconSize, this.iconSize, this.halfIconSize, this.halfIconSize, true, true);
@@ -595,8 +598,8 @@ public class CanvasView extends SurfaceView implements SurfaceHolder.Callback, R
             }
         }
 
-        float scaleX = this.scale.x * this.scaleAdaption;
-        float scaleY = this.scale.y * this.scaleAdaption;
+        float scaleX = this.transition.scaleX * this.transitionAdaption.scaleX;
+        float scaleY = this.transition.scaleY * this.transitionAdaption.scaleY;
         Rect sRect = (sx != null && sy != null && sWidth != null && sHeight != null) ? new Rect(sx, sy, sx + sWidth, sy + sHeight) : null;
         RectF dRect;
         if (!fixSize) {
@@ -614,11 +617,11 @@ public class CanvasView extends SurfaceView implements SurfaceHolder.Callback, R
     }
 
     private PointF getImageToCanvasPoint(float x, float y) {
-        return new PointF(x * this.scale.x * this.scaleAdaption + this.position.x + this.positionAdaption.x, y * this.scale.y * this.scaleAdaption + this.position.y + this.positionAdaption.y);
+        return new PointF(x * this.transition.scaleX * this.transitionAdaption.scaleX + this.transition.translateX + this.transitionAdaption.translateX, y * this.transition.scaleY * this.transitionAdaption.scaleY + this.transition.translateY + this.transitionAdaption.translateY);
     }
 
     private PointF getCanvasToImagePoint(float x, float y) {
-        return new PointF((x - this.positionAdaption.x - this.position.x) / (this.scale.x * this.scaleAdaption), (y - this.positionAdaption.y - this.position.y) / (this.scale.y * this.scaleAdaption));
+        return new PointF((x - this.transitionAdaption.translateX - this.transition.translateX) / (this.transition.scaleX * this.transitionAdaption.scaleX), (y - this.transitionAdaption.translateY - this.transition.translateY) / (this.transition.scaleY * this.transitionAdaption.scaleY));
     }
 
     private PointF getTouchPoint (float x, float y) {
@@ -627,66 +630,67 @@ public class CanvasView extends SurfaceView implements SurfaceHolder.Callback, R
         return new PointF(px, py);
     }
 
-    private void validateScale(float newScale) {
-        newScale = (float) Math.ceil(newScale * 10000) / 10000;
+    private void validateScale(float newScaleX, float newScaleY) {
+        if (newScaleX != newScaleY) return;
+        newScaleX = (float) Math.ceil(newScaleX * 10000) / 10000;
+        newScaleY = (float) Math.ceil(newScaleY * 10000) / 10000;
 
-        if (newScale > 6) {
-            newScale = 6;
-        } else if (newScale < 1) {
-            newScale = 1;
+        if (newScaleX > 6) {
+            newScaleX = 6;
+        } else if (newScaleX < 1) {
+            newScaleX = 1;
+        }
+        if (newScaleY > 6) {
+            newScaleY = 6;
+        } else if (newScaleY < 1) {
+            newScaleY = 1;
         }
 
-        if (this.scale.x != newScale && this.scale.x == this.scale.y) {
-            this.scale.x = newScale;
-            this.scale.y = newScale;
+        if (this.transition.scaleX != newScaleX || this.transition.scaleY != newScaleY) {
+            this.transition.scaleX = newScaleX;
+            this.transition.scaleY = newScaleY;
         }
     }
 
-    private void validatePosition(float newPosX, float newPosY) {
+    private void validateTranslate(float newTranslateX, float newTranslateY) {
         // edges cases
-        float currentWidth = this.imgWidth * this.scaleAdaption * this.scale.x;
-        float currentHeight = this.imgHeight * this.scaleAdaption * this.scale.y;
+        float currentWidth = this.imgWidth * this.transitionAdaption.scaleX * this.transition.scaleX;
+        float currentHeight = this.imgHeight * this.transitionAdaption.scaleY * this.transition.scaleY;
 
-        if (newPosX + currentWidth + this.positionAdaption.x < this.canvasWidth - this.positionAdaption.x) {
-            newPosX = this.canvasWidth - 2 * this.positionAdaption.x - currentWidth;
+        if (newTranslateX + currentWidth + this.transitionAdaption.translateX < this.canvasWidth - this.transitionAdaption.translateX) {
+            newTranslateX = this.canvasWidth - 2 * this.transitionAdaption.translateX - currentWidth;
         }
-        if (newPosX > 0) {
-            newPosX = 0;
-        }
-
-        if (newPosY + currentHeight + this.positionAdaption.y < this.canvasHeight - this.positionAdaption.y) {
-            newPosY = this.canvasHeight - 2 * this.positionAdaption.y - currentHeight;
-        }
-        if (newPosY > 0) {
-            newPosY = 0;
+        if (newTranslateX > 0) {
+            newTranslateX = 0;
         }
 
-        if (this.position.x != newPosX) {
-            this.position.x = newPosX;
+        if (newTranslateY + currentHeight + this.transitionAdaption.translateY < this.canvasHeight - this.transitionAdaption.translateY) {
+            newTranslateY = this.canvasHeight - 2 * this.transitionAdaption.translateY - currentHeight;
         }
-        if (this.position.y != newPosY) {
-            this.position.y = newPosY;
+        if (newTranslateY > 0) {
+            newTranslateY = 0;
+        }
+
+        if (this.transition.translateX != newTranslateX) {
+            this.transition.translateX = newTranslateX;
+        }
+        if (this.transition.translateY != newTranslateY) {
+            this.transition.translateY = newTranslateY;
         }
     }
 
-    private void manipulateMap(float deltaScale) {
-        manipulateMap(0, 0, deltaScale);
-    }
+    private void manipulateMap(AnimationTransition deltaTransition) {
+        float oldScaleX = this.transition.scaleX;
+        float oldScaleY = this.transition.scaleY;
+        float newScaleX = this.transition.scaleX + deltaTransition.scaleX;
+        float newScaleY = this.transition.scaleY + deltaTransition.scaleY;
+        this.validateScale(newScaleX, newScaleY);
 
-    private void manipulateMap(float deltaX, float deltaY) {
-        manipulateMap(deltaX, deltaY, 0);
-    }
-
-    private void manipulateMap(float deltaX, float deltaY, float deltaScale) {
-        float oldScale = this.scale.x;
-        float newScale = this.scale.x + deltaScale;
-        this.validateScale(newScale);
-
-        float newPosX = oldScale == this.scale.x ? this.position.x : (this.focusedPoint.x - this.positionAdaption.x - (this.focusedPoint.x - this.positionAdaption.x - this.position.x) * this.scale.x / oldScale);
-        float newPosY = oldScale == this.scale.y ? this.position.y : (this.focusedPoint.y - this.positionAdaption.y - (this.focusedPoint.y - this.positionAdaption.y - this.position.y) * this.scale.y / oldScale);
-        newPosX += deltaX;
-        newPosY += deltaY;
-        this.validatePosition(newPosX, newPosY);
+        float newTranslateX = oldScaleX == this.transition.scaleX ? this.transition.translateX : (this.focusedPoint.x - this.transitionAdaption.translateX - (this.focusedPoint.x - this.transitionAdaption.translateX - this.transition.translateX) * this.transition.scaleX / oldScaleX);
+        float newTranslateY = oldScaleY == this.transition.scaleY ? this.transition.translateY : (this.focusedPoint.y - this.transitionAdaption.translateY - (this.focusedPoint.y - this.transitionAdaption.translateY - this.transition.translateY) * this.transition.scaleY / oldScaleY);
+        newTranslateX += deltaTransition.translateX;
+        newTranslateY += deltaTransition.translateY;
+        this.validateTranslate(newTranslateX, newTranslateY);
     }
 
     @RequiresApi(api = Build.VERSION_CODES.N)
@@ -701,7 +705,7 @@ public class CanvasView extends SurfaceView implements SurfaceHolder.Callback, R
                     Region region = new Region();
                     Path path = new Path();
                     if (p.areaCoords == null) {
-                        if (p.iconLevel <= 0 || (this.scale.x < p.iconLevel || this.scale.y < p.iconLevel)) return false;
+                        if (p.iconLevel <= 0 || (this.transition.scaleX < p.iconLevel || this.transition.scaleY < p.iconLevel)) return false;
                         PointF point = this.getImageToCanvasPoint(p.location.x , p.location.y);
                         path.addCircle(point.x, point.y, this.halfIconSize, Path.Direction.CW);
                         if (p.textPosition != null) {
@@ -813,10 +817,11 @@ public class CanvasView extends SurfaceView implements SurfaceHolder.Callback, R
         this.canvasWidth = this.clientWidth;
         this.canvasHeight = this.clientHeight;
 
-        this.scaleAdaption = Math.min(this.canvasWidth / this.imgWidth, this.canvasHeight / this.imgHeight);
-
-        this.positionAdaption.x = Math.round((this.canvasWidth - this.imgWidth * this.scaleAdaption) / 2);
-        this.positionAdaption.y = Math.round((this.canvasHeight - this.imgHeight * this.scaleAdaption) / 2);
+        float scaleAdaption = Math.min(this.canvasWidth / this.imgWidth, this.canvasHeight / this.imgHeight);
+        this.transitionAdaption.scaleX = scaleAdaption;
+        this.transitionAdaption.scaleY = scaleAdaption;
+        this.transitionAdaption.translateX = Math.round((this.canvasWidth - this.imgWidth * this.transitionAdaption.scaleX) / 2);
+        this.transitionAdaption.translateY = Math.round((this.canvasHeight - this.imgHeight * this.transitionAdaption.scaleY) / 2);
 
         if (this.labelComplete) {
             this.updatePlaceList();
@@ -825,21 +830,23 @@ public class CanvasView extends SurfaceView implements SurfaceHolder.Callback, R
 
     private void refreshTextPosition() {
         GraphicPlace.TextPosition[] positionArr = {GraphicPlace.TextPosition.BOTTOM, GraphicPlace.TextPosition.LEFT, GraphicPlace.TextPosition.RIGHT, GraphicPlace.TextPosition.TOP};
-        float finalScale = this.scale.x * this.scaleAdaption;
-        float currentScale = this.scale.x;
-        GridIndex gi = new GridIndex(this.imgWidth * finalScale, this.imgHeight * finalScale, (int) (30 * Math.floor(this.scale.x)));
+        float finalScaleX = this.transition.scaleX * this.transitionAdaption.scaleX;
+        float finalScaleY = this.transition.scaleX * this.transitionAdaption.scaleY;
+        float currentScaleX = this.transition.scaleX;
+        float currentScaleY = this.transition.scaleY;
+        GridIndex gi = new GridIndex(this.imgWidth * finalScaleX, this.imgHeight * finalScaleY, (int) (30 * Math.floor(this.transition.scaleX)));
 
         for (GraphicPlace place : this.graphicPlaceList) {
-            if (place.iconLevel > currentScale) continue;
-            PointF canvasPoint = new PointF((float) place.location.x * finalScale, (float) place.location.y * finalScale);
-                    this.getImageToCanvasPoint(place.location.x, place.location.y);
+            if (place.iconLevel > currentScaleX || place.iconLevel > currentScaleY) continue;
+            PointF canvasPoint = new PointF((float) place.location.x * finalScaleX, (float) place.location.y * finalScaleY);
+            this.getImageToCanvasPoint(place.location.x, place.location.y);
             gi.insert(new Pair<>(String.valueOf(place.id), new BCircle(canvasPoint.x, canvasPoint.y, this.halfIconSize)), false);
         }
 
         for (GraphicPlace place : this.graphicPlaceList) {
-            if (place.iconLevel <= 0 || place.iconLevel > currentScale) continue;
+            if (place.iconLevel <= 0 || place.iconLevel > currentScaleX || place.iconLevel > currentScaleY) continue;
 
-            PointF canvasPoint = new PointF((float) place.location.x * finalScale, (float) place.location.y * finalScale);
+            PointF canvasPoint = new PointF((float) place.location.x * finalScaleX, (float) place.location.y * finalScaleY);
             float width = place.textWidth;
             float height = place.textHeight;
             float halfWidth = width / 2;
@@ -958,16 +965,18 @@ public class CanvasView extends SurfaceView implements SurfaceHolder.Callback, R
         public final long endTime;
         public final float deltaTranslateX;
         public final float deltaTranslateY;
-        public final float deltaScale;
+        public final float deltaScaleX;
+        public final float deltaScaleY;
         public long currentTime;
 
-        public MapAnimation(float deltaTranslateX, float deltaTranslateY, float deltaScale, int duration) {
+        public MapAnimation(float deltaTranslateX, float deltaTranslateY, float deltaScaleX, float deltaScaleY, int duration) {
             this.duration = duration;
             this.startTime = System.currentTimeMillis();
             this.endTime = this.startTime + this.duration;
             this.deltaTranslateX = deltaTranslateX;
             this.deltaTranslateY = deltaTranslateY;
-            this.deltaScale = deltaScale;
+            this.deltaScaleX = deltaScaleX;
+            this.deltaScaleY = deltaScaleY;
             this.currentTime = this.startTime;
         }
     }

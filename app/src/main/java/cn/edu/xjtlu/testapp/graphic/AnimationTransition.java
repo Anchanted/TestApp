@@ -6,7 +6,8 @@ public class AnimationTransition {
     public float scaleX;
     public float scaleY;
 
-    private AnimationTransition() {
+    public AnimationTransition() {
+        this(0, 0, 0, 0);
     }
 
     public AnimationTransition(float translateX, float translateY, float scaleX, float scaleY) {

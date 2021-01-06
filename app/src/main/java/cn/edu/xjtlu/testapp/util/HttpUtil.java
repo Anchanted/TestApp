@@ -41,5 +41,9 @@ public class HttpUtil {
                 message = resultMsg == null || resultMsg.isEmpty() ? "未知错误，请稍后再试！" : resultMsg;
             }
         }
+
+        if (message != null) {
+            ToastUtil.shortToastError(message);
+        }
     }
 }

@@ -14,11 +14,6 @@ import android.graphics.BitmapFactory;
 import android.graphics.PointF;
 import android.graphics.Typeface;
 import android.graphics.drawable.Drawable;
-import android.hardware.Sensor;
-import android.hardware.SensorEvent;
-import android.hardware.SensorEventListener;
-import android.location.Location;
-import android.location.LocationListener;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
@@ -26,12 +21,9 @@ import android.provider.Settings;
 import android.view.View;
 import android.view.Window;
 import android.widget.AdapterView;
-import android.widget.ArrayAdapter;
-import android.widget.AutoCompleteTextView;
 import android.widget.Button;
 import android.widget.CompoundButton;
 import android.widget.LinearLayout;
-import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 import android.widget.ToggleButton;
@@ -42,7 +34,6 @@ import com.bumptech.glide.request.transition.Transition;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import java.lang.reflect.Field;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -50,9 +41,8 @@ import java.util.Map;
 import butterknife.BindView;
 import butterknife.OnCheckedChanged;
 import butterknife.OnClick;
-import cn.edu.xjtlu.testapp.adapter.FloorArrayAdapter;
+import cn.edu.xjtlu.testapp.adapter.FloorListAdapter;
 import cn.edu.xjtlu.testapp.api.Api;
-import cn.edu.xjtlu.testapp.domain.Point;
 import cn.edu.xjtlu.testapp.domain.response.Result;
 import cn.edu.xjtlu.testapp.domain.Floor;
 import cn.edu.xjtlu.testapp.domain.Place;
@@ -66,8 +56,7 @@ import cn.edu.xjtlu.testapp.util.LocationUtil;
 import cn.edu.xjtlu.testapp.util.LogUtil;
 import cn.edu.xjtlu.testapp.util.ResourceUtil;
 import cn.edu.xjtlu.testapp.util.SensorUtil;
-import cn.edu.xjtlu.testapp.util.ToastUtil;
-import cn.edu.xjtlu.testapp.util.UnitConverter;
+import cn.edu.xjtlu.testapp.widget.popupwindow.FloorPopupWindow;
 import permissions.dispatcher.NeedsPermission;
 import permissions.dispatcher.OnNeverAskAgain;
 import permissions.dispatcher.OnPermissionDenied;
@@ -87,8 +76,9 @@ public class MainActivity extends BaseCommonActivity {
     public ToggleButton locationBtn;
     @BindView(R.id.codeTextView)
     public TextView codeTv;
-    @BindView(R.id.floorSpinner)
-    public Spinner floorSpinner;
+    @BindView(R.id.floorBtn)
+    public Button floorButton;
+    private FloorPopupWindow floorPopupWindow;
 
     @BindView(R.id.button_group_left_top)
     public LinearLayout buttonGroupLT;
@@ -157,29 +147,30 @@ public class MainActivity extends BaseCommonActivity {
                         loadImage(null);
                     } else {
                         Floor floor = mapper.readValue(rootNode.get("selectedFloor").toString(), Floor.class);
+                        floorButton.setText(floor.getName());
                         loadImage(floor.getImgUrl());
 
                         Place building = mapper.readValue(rootNode.get("building").toString(), Place.class);
                         codeTv.setText(building.getCode());
 
                         List<Floor> floorList = Arrays.asList(mapper.readValue(rootNode.get("floorList").toString(), Floor[].class));
-                        String[] floorNameArr = new String[floorList.size()];
                         int position = 0;
                         for (int i = 0; i < floorList.size(); i++) {
-                            floorNameArr[i] = floorList.get(i).getName();
                             if (floorId.equals(floorList.get(i).getId())) {
                                 position = i;
                             }
                         }
-//                        ArrayAdapter<String> adapter = new ArrayAdapter<>(MainActivity.this, android.R.layout.simple_spinner_item, floorNameArr);
-//                        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-                        FloorArrayAdapter adapter = new FloorArrayAdapter(getMainActivity(), floorList, position);
-                        floorSpinner.setAdapter(adapter);
-                        floorSpinner.setSelection(position);
-                        floorSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+                        FloorListAdapter adapter = new FloorListAdapter(getMainActivity(), floorList);
+                        adapter.setSelectedPosition(position);
+                        int ddWidth = getResources().getDimensionPixelSize(R.dimen.button_size);
+                        int ddHeight = getResources().getDimensionPixelSize(R.dimen.spinner_dropdown_item_height);
+                        int size = floorList == null ? 0 : floorList.size();
+                        floorPopupWindow = new FloorPopupWindow(getMainActivity(), R.layout.floor_dropdown, ddWidth, (int) Math.ceil(ddHeight * (size > 6 ? 6.5 : size)), adapter, new AdapterView.OnItemClickListener() {
                             @Override
-                            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
-                                LogUtil.d(TAG, "onItemSelected: " + floorNameArr[position]);
+                            public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+                                LogUtil.d(TAG, "onItemSelected: " + floorList.get(position));
+                                adapter.setSelectedPosition(position);
+                                floorPopupWindow.dismiss();
                                 Floor floor = floorList.get(position);
                                 if (floor == null) return;
                                 if (floor.getId().equals(floorId)) return;
@@ -188,11 +179,6 @@ public class MainActivity extends BaseCommonActivity {
                                 intent.putExtra("buildingId", buildingId);
 
                                 startActivityAndFinish(intent);
-                            }
-
-                            @Override
-                            public void onNothingSelected(AdapterView<?> parent) {
-
                             }
                         });
                     }
@@ -316,6 +302,9 @@ public class MainActivity extends BaseCommonActivity {
     protected void onDestroy() {
         mHandler.removeCallbacks(mThread);
         super.onDestroy();
+        if (floorPopupWindow != null) {
+            floorPopupWindow.dismiss();
+        }
         if (locationBtn.isChecked()) {
             locationUtil.removeUpdates();
             sensorUtil.unregisterListener();
@@ -418,6 +407,11 @@ public class MainActivity extends BaseCommonActivity {
     @OnClick(R.id.campusBtn)
     public void onCampusBtnClick(View v) {
         startActivityAndFinish(MainActivity.class);
+    }
+
+    @OnClick(R.id.floorBtn)
+    public void onFloorBtnClick(View v) {
+        floorPopupWindow.showAsDropDown(floorButton, 0, 0);
     }
 
     @OnCheckedChanged(R.id.locationBtn)

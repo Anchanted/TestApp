@@ -24,6 +24,7 @@ import android.widget.AdapterView;
 import android.widget.Button;
 import android.widget.CompoundButton;
 import android.widget.LinearLayout;
+import android.widget.RelativeLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 import android.widget.ToggleButton;
@@ -84,6 +85,8 @@ public class MainActivity extends BaseCommonActivity {
     public LinearLayout buttonGroupLT;
     @BindView(R.id.button_group_right_bottom)
     public LinearLayout buttonGroupRB;
+    @BindView(R.id.floor_button_layout)
+    public LinearLayout floorButtonLayout;
 
     @BindView(R.id.tv_latitude)
     public TextView tvLatitude;
@@ -112,9 +115,9 @@ public class MainActivity extends BaseCommonActivity {
         locationBtn.setTypeface(iconfont);
         if (floorId != null && buildingId != null) {
             buttonGroupLT.setVisibility(View.VISIBLE);
-            buttonGroupRB.setVisibility(View.INVISIBLE);
+            buttonGroupRB.setVisibility(View.GONE);
         } else {
-            buttonGroupLT.setVisibility(View.INVISIBLE);
+            buttonGroupLT.setVisibility(View.GONE);
             buttonGroupRB.setVisibility(View.VISIBLE);
         }
 
@@ -181,6 +184,7 @@ public class MainActivity extends BaseCommonActivity {
                                 startActivityAndFinish(intent);
                             }
                         });
+                        floorButtonLayout.setVisibility(View.VISIBLE);
                     }
                 } catch (Exception e) {
                     e.printStackTrace();

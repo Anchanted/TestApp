@@ -34,27 +34,33 @@
                 tools:ignore="SpUsage">
             </Button>
 
-            <TextView
-                android:id="@+id/codeTextView"
-                android:layout_width="@dimen/button_size"
-                android:layout_height="@dimen/spinner_text_height"
-                android:background="@drawable/code_text_view"
-                android:textColor="@color/bs_secondary"
-                android:gravity="center"
-                android:textSize="@dimen/spinner_text_size"
-                android:textStyle="bold"/>
-            <Button
-                android:id="@+id/floorBtn"
-                android:layout_width="@dimen/button_size"
-                android:layout_height="@dimen/spinner_height"
-                android:paddingBottom="10dp"
-                android:textAlignment="center"
-                android:drawableBottom="@drawable/floor_button_icon"
-                android:drawablePadding="5dp"
-                android:background="@drawable/floor_spinner"
-                android:textColor="@color/white"
-                android:textSize="@dimen/spinner_text_size"
-                android:visibility="invisible" />
+            <LinearLayout
+                android:id="@+id/floor_button_layout"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:visibility="invisible">
+                <TextView
+                    android:id="@+id/codeTextView"
+                    android:layout_width="@dimen/button_size"
+                    android:layout_height="@dimen/spinner_text_height"
+                    android:background="@drawable/code_text_view"
+                    android:textColor="@color/bs_secondary"
+                    android:gravity="center"
+                    android:textSize="@dimen/spinner_text_size"
+                    android:textStyle="bold"/>
+                <Button
+                    android:id="@+id/floorBtn"
+                    android:layout_width="@dimen/button_size"
+                    android:layout_height="@dimen/spinner_height"
+                    android:paddingBottom="10dp"
+                    android:textAlignment="center"
+                    android:drawableBottom="@drawable/floor_button_icon"
+                    android:drawablePadding="5dp"
+                    android:background="@drawable/floor_spinner"
+                    android:textColor="@color/white"
+                    android:textSize="@dimen/spinner_text_size" />
+            </LinearLayout>
         </LinearLayout>
 
         <LinearLayout

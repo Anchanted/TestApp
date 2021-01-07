@@ -1,9 +1,12 @@
 package cn.edu.xjtlu.testapp.graphic;
 
+import android.animation.ValueAnimator;
 import android.graphics.Bitmap;
 import android.graphics.Paint;
 import android.graphics.Point;
 import android.text.StaticLayout;
+
+import androidx.annotation.NonNull;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -46,6 +49,11 @@ public class GraphicPlace implements Comparable<GraphicPlace>{
 
     public TextPosition textPosition = TextPosition.BOTTOM;
 
+    @NonNull
+    public final ValueAnimator displayAnimator;
+
+    public int displayAlpha;
+
     public final int textWidth;
 
     public final int textHeight;
@@ -61,6 +69,7 @@ public class GraphicPlace implements Comparable<GraphicPlace>{
         this.displayName = null;
         this.location = null;
         this.areaCoords = null;
+        this.displayAnimator = null;
         this.textWidth = 0;
         this.textHeight = 0;
         this.halfTextHeight = 0;
@@ -74,6 +83,9 @@ public class GraphicPlace implements Comparable<GraphicPlace>{
         this.iconLevel = pp.getIconLevel();
         this.displayName = pp.getDisplayIconName();
         this.staticLayout = layout;
+        this.displayAnimator = ValueAnimator.ofInt(0, 100);
+        this.displayAnimator.setDuration(100);
+        this.displayAnimator.addUpdateListener(animation -> displayAlpha = ((Number) animation.getAnimatedValue()).intValue());
         this.textHeight = layout.getHeight();
         this.halfTextHeight = textHeight / 2f;
         int width = 0;

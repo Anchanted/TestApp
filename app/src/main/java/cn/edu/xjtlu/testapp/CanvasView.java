@@ -1,5 +1,8 @@
 package cn.edu.xjtlu.testapp;
 
+import android.animation.Animator;
+import android.animation.AnimatorListenerAdapter;
+import android.animation.TimeAnimator;
 import android.animation.ValueAnimator;
 import android.content.Context;
 import android.graphics.Bitmap;
@@ -25,6 +28,7 @@ import android.view.MotionEvent;
 import android.view.ScaleGestureDetector;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
+import android.view.animation.LinearInterpolator;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -40,6 +44,7 @@ import java.util.List;
 import java.util.Map;
 
 import cn.edu.xjtlu.testapp.graphic.AnimationTransition;
+import cn.edu.xjtlu.testapp.graphic.AnimationTransitionEvaluator;
 import cn.edu.xjtlu.testapp.graphic.BBox;
 import cn.edu.xjtlu.testapp.graphic.BCircle;
 import cn.edu.xjtlu.testapp.graphic.GraphicPlace;
@@ -50,7 +55,7 @@ import cn.edu.xjtlu.testapp.util.JsonAssetsReader;
 import cn.edu.xjtlu.testapp.util.LogUtil;
 
 public class CanvasView extends SurfaceView implements SurfaceHolder.Callback, Runnable, GestureDetector.OnGestureListener, GestureDetector.OnDoubleTapListener, ScaleGestureDetector.OnScaleGestureListener {
-    private static final String TAG = CanvasView.class.getName();
+    private static final String TAG = CanvasView.class.getSimpleName();
 
     private Context mContext;
     private Thread surfaceThread;
@@ -88,8 +93,9 @@ public class CanvasView extends SurfaceView implements SurfaceHolder.Callback, R
     private float halfIconSize;
     private float locationIconSize;
     private float halfLocationIconSize;
-    private MapAnimation mapAnimation;
-    private ValueAnimator mapAnimator;
+    @NonNull
+    private ValueAnimator mapAnimator = new ValueAnimator();
+    private AnimationTransition lastMapAnimationTransition;
     private boolean labelComplete;
     private boolean imageComplete;
 
@@ -178,19 +184,6 @@ public class CanvasView extends SurfaceView implements SurfaceHolder.Callback, R
             if (!this.surfaceHolder.getSurface().isValid()) continue;
             if (!this.labelComplete || !this.imageComplete) continue;
             if ((canvas = this.surfaceHolder.lockCanvas()) != null) {
-                if (this.mapAnimation != null) {
-                    long t = Math.min(System.currentTimeMillis(), this.mapAnimation.endTime);
-                    long lt = this.mapAnimation.currentTime;
-                    float deltaT = t - lt;
-                    float deltaTranslateX = deltaT / this.mapAnimation.duration * this.mapAnimation.deltaTranslateX;
-                    float deltaTranslateY = deltaT / this.mapAnimation.duration * this.mapAnimation.deltaTranslateY;
-                    float deltaScaleX = deltaT / this.mapAnimation.duration * this.mapAnimation.deltaScaleX;
-                    float deltaScaleY = deltaT / this.mapAnimation.duration * this.mapAnimation.deltaScaleY;
-                    this.manipulateMap(new AnimationTransition(deltaTranslateX, deltaTranslateY, deltaScaleX, deltaScaleY));
-                    this.mapAnimation.currentTime = t;
-                    if (t >= this.mapAnimation.endTime) this.mapAnimation = null;
-                }
-
                 canvas.drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR);
                 this.drawMapInfo(canvas);
             }
@@ -203,9 +196,9 @@ public class CanvasView extends SurfaceView implements SurfaceHolder.Callback, R
 //        LogUtil.d(TAG, "onTouchEvent " + event.getAction());
         switch (event.getActionMasked()) {
             case MotionEvent.ACTION_MOVE:
-                if (this.doubleTapDown) {
+                if (this.doubleTapDown && !this.mapAnimator.isRunning()) {
                     float distance = event.getY() - this.doubleTapDownMotionEventPoint.y;
-                    float scale = (distance - this.lastDoubleTapMotionEventDistance) / 400;
+                    float scale = (distance - this.lastDoubleTapMotionEventDistance) / 300;
                     this.manipulateMap(new AnimationTransition(0, 0, scale, scale));
                     this.lastDoubleTapMotionEventDistance = distance;
                     this.refreshTextPosition();
@@ -283,7 +276,23 @@ public class CanvasView extends SurfaceView implements SurfaceHolder.Callback, R
                 this.doubleTapDown = false;
 
                 if (!this.doubleTapMove) {
-                    this.mapAnimation = new MapAnimation(0, 0, 0.5f, 0.5f, 100);
+                    ValueAnimator valueAnimator = ValueAnimator.ofObject(new AnimationTransitionEvaluator(), new AnimationTransition(0, 0, 0, 0), new AnimationTransition(0, 0, 0.5f, 0.5f));
+                    valueAnimator.setDuration(100);
+                    valueAnimator.setInterpolator(new LinearInterpolator());
+                    valueAnimator.addUpdateListener(animation -> {
+                        AnimationTransition currentAnimation = (AnimationTransition) animation.getAnimatedValue();
+                        manipulateMap(AnimationTransition.minus(currentAnimation, lastMapAnimationTransition));
+                        lastMapAnimationTransition = currentAnimation;
+                    });
+                    valueAnimator.addListener(new AnimatorListenerAdapter() {
+                        @Override
+                        public void onAnimationStart(Animator animation) {
+                            super.onAnimationStart(animation);
+                            lastMapAnimationTransition = null;
+                        }
+                    });
+                    this.mapAnimator = valueAnimator;
+                    this.mapAnimator.start();
                 }
                 break;
         }
@@ -293,12 +302,14 @@ public class CanvasView extends SurfaceView implements SurfaceHolder.Callback, R
     @Override
     public boolean onScale(ScaleGestureDetector detector) {
 //        LogUtil.d(TAG, "onScale");
+        if (this.mapAnimator.isRunning()) return true;
         float zoom = detector.getScaleFactor() - 1f;
         PointF focusPoint = this.getTouchPoint(detector.getFocusX(), detector.getFocusY());
         this.focusedPoint.x = focusPoint.x;
         this.focusedPoint.y = focusPoint.y;
         this.manipulateMap(new AnimationTransition(0, 0, zoom * 2, zoom * 2));
         this.refreshTextPosition();
+        this.refreshIconDisplay();
         return true;
     }
 
@@ -680,6 +691,8 @@ public class CanvasView extends SurfaceView implements SurfaceHolder.Callback, R
     }
 
     private void manipulateMap(AnimationTransition deltaTransition) {
+        if (deltaTransition == null) return;
+
         float oldScaleX = this.transition.scaleX;
         float oldScaleY = this.transition.scaleY;
         float newScaleX = this.transition.scaleX + deltaTransition.scaleX;
@@ -853,7 +866,9 @@ public class CanvasView extends SurfaceView implements SurfaceHolder.Callback, R
             float halfHeight = height / 2;
 
             int result = -1;
-            for (GraphicPlace.TextPosition position : positionArr) {
+            for (int i = -1; i < positionArr.length; i++) {
+                GraphicPlace.TextPosition position = i >= 0 ? positionArr[i] : place.textPosition;
+                if (position == null) continue;
                 BBox box = null;
                 switch (position) {
                     case BOTTOM:
@@ -879,6 +894,12 @@ public class CanvasView extends SurfaceView implements SurfaceHolder.Callback, R
             if (result == -1) {
                 place.textPosition = null;
             }
+        }
+    }
+    
+    private void refreshIconDisplay() {
+        for (GraphicPlace graphicPlace : graphicPlaceList) {
+            
         }
     }
 
@@ -957,28 +978,6 @@ public class CanvasView extends SurfaceView implements SurfaceHolder.Callback, R
 
     public void setLocationActivated(boolean flag) {
         this.locationActivated = flag;
-    }
-
-    class MapAnimation {
-        public final int duration;
-        public final long startTime;
-        public final long endTime;
-        public final float deltaTranslateX;
-        public final float deltaTranslateY;
-        public final float deltaScaleX;
-        public final float deltaScaleY;
-        public long currentTime;
-
-        public MapAnimation(float deltaTranslateX, float deltaTranslateY, float deltaScaleX, float deltaScaleY, int duration) {
-            this.duration = duration;
-            this.startTime = System.currentTimeMillis();
-            this.endTime = this.startTime + this.duration;
-            this.deltaTranslateX = deltaTranslateX;
-            this.deltaTranslateY = deltaTranslateY;
-            this.deltaScaleX = deltaScaleX;
-            this.deltaScaleY = deltaScaleY;
-            this.currentTime = this.startTime;
-        }
     }
 
     class AssetsJsonThread extends Thread {

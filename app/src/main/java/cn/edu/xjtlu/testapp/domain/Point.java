@@ -2,8 +2,6 @@ package cn.edu.xjtlu.testapp.domain;
 
 import android.os.Build;
 
-import androidx.annotation.RequiresApi;
-
 import java.io.Serializable;
 import java.util.Objects;
 
@@ -73,7 +71,6 @@ public class Point implements Serializable {
                 Double.compare(point.z, z) == 0;
     }
 
-    @RequiresApi(api = Build.VERSION_CODES.KITKAT)
     @Override
     public int hashCode() {
         return Objects.hash(x, y, z);

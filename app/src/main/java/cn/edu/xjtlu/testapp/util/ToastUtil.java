@@ -26,6 +26,10 @@ public class ToastUtil {
         Toasty.error(context, id, Toasty.LENGTH_LONG).show();
     }
 
+    public static void longToastError(String message) {
+        Toasty.error(context, message, Toasty.LENGTH_LONG).show();
+    }
+
     public static void shortToastSuccess(@StringRes int id) {
         Toasty.success(context, id, Toasty.LENGTH_SHORT).show();
     }

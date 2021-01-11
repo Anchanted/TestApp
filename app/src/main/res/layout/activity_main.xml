@@ -6,15 +6,21 @@
     android:layout_height="match_parent"
     tools:context=".MainActivity">
 
-    <cn.edu.xjtlu.testapp.CanvasView
-        android:id="@+id/canvasView"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent" />
-
-    <RelativeLayout
+    <FrameLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent">
 
+        <cn.edu.xjtlu.testapp.CanvasView
+            android:id="@+id/cv"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
+    </FrameLayout>
+
+    <RelativeLayout
+        android:id="@+id/button_group"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:elevation="1dp">
         <LinearLayout
             android:id="@+id/button_group_left_top"
             android:layout_width="wrap_content"
@@ -23,14 +29,13 @@
             android:layout_alignParentTop="true"
             android:orientation="vertical"
             android:layout_marginStart="@dimen/button_group_margin"
-            android:layout_marginTop="@dimen/button_group_margin"
-            android:visibility="invisible">
-
+            android:layout_marginTop="@dimen/button_group_margin">
             <Button
-                android:id="@+id/campusBtn"
+                android:id="@+id/button_campus"
                 style="@style/FunctionButton"
                 android:text="@string/icon_map"
                 android:layout_marginBottom="@dimen/button_margin"
+                android:visibility="invisible"
                 tools:ignore="SpUsage">
             </Button>
 
@@ -41,7 +46,7 @@
                 android:orientation="vertical"
                 android:visibility="invisible">
                 <TextView
-                    android:id="@+id/codeTextView"
+                    android:id="@+id/tv_code"
                     android:layout_width="@dimen/button_size"
                     android:layout_height="@dimen/spinner_text_height"
                     android:background="@drawable/code_text_view"
@@ -50,17 +55,35 @@
                     android:textSize="@dimen/spinner_text_size"
                     android:textStyle="bold"/>
                 <Button
-                    android:id="@+id/floorBtn"
+                    android:id="@+id/button_floor"
                     android:layout_width="@dimen/button_size"
                     android:layout_height="@dimen/spinner_height"
-                    android:paddingBottom="10dp"
+                    android:paddingBottom="6dp"
                     android:textAlignment="center"
                     android:drawableBottom="@drawable/floor_button_icon"
-                    android:drawablePadding="5dp"
-                    android:background="@drawable/floor_spinner"
-                    android:textColor="@color/white"
-                    android:textSize="@dimen/spinner_text_size" />
+                    android:drawablePadding="6dp"
+                    android:background="@drawable/floor_button_bg"
+                    android:textColor="@android:color/white"
+                    android:textSize="@dimen/spinner_text_size"/>
             </LinearLayout>
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/button_group_right_top"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentEnd="true"
+            android:layout_alignParentTop="true"
+            android:orientation="vertical"
+            android:layout_marginEnd="@dimen/button_group_margin"
+            android:layout_marginTop="@dimen/button_group_margin">
+            <ToggleButton
+                android:id="@+id/button_menu"
+                android:layout_width="@dimen/button_size"
+                android:layout_height="@dimen/button_size"
+                android:padding="50dp"
+                android:background="@drawable/menu_button">
+            </ToggleButton>
         </LinearLayout>
 
         <LinearLayout
@@ -73,12 +96,44 @@
             android:layout_marginEnd="@dimen/button_group_margin"
             android:layout_marginBottom="@dimen/button_group_margin"
             android:visibility="invisible">
+            
+            <FrameLayout
+                android:id="@+id/compass_layout"
+                android:layout_width="@dimen/button_size"
+                android:layout_height="@dimen/button_size">
+                <ImageView
+                    android:id="@+id/iv_compass"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:src="@drawable/ic_compass"
+                    android:transformPivotX="@dimen/button_size_half"
+                    android:transformPivotY="@dimen/button_size_half"
+                    android:contentDescription="floor button" />
+                <ToggleButton
+                    android:id="@+id/button_compass"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:background="@drawable/ic_compass_probe_selector"
+                    android:textOff=""
+                    android:textOn=""
+                    android:transformPivotX="@dimen/button_size_half"
+                    android:transformPivotY="@dimen/button_size_half"/>
+            </FrameLayout>
 
             <ToggleButton
-                android:id="@+id/locationBtn"
+                android:id="@+id/button_location"
                 style="@style/FunctionButton"
                 android:textOff="@string/icon_location"
                 android:textOn="@string/icon_location"
+                android:layout_marginTop="@dimen/button_margin"
+                tools:ignore="SpUsage">
+            </ToggleButton>
+
+            <ToggleButton
+                android:id="@+id/button_occupation"
+                style="@style/FunctionButton"
+                android:textOff="@string/icon_group"
+                android:textOn="@string/icon_group"
                 android:layout_marginTop="@dimen/button_margin"
                 tools:ignore="SpUsage">
             </ToggleButton>
@@ -101,8 +156,8 @@
                     android:layout_width="100dp"
                     android:layout_height="30dp"
                     android:textSize="20sp"
-                    android:background="@color/white"
-                    android:textColor="@color/black"
+                    android:background="@android:color/white"
+                    android:textColor="@android:color/black"
                     android:text="0" />
                 <TextView
                     android:id="@+id/tv_longitude"
@@ -110,8 +165,8 @@
                     android:layout_height="30dp"
                     android:layout_marginStart="10dp"
                     android:textSize="20sp"
-                    android:background="@color/white"
-                    android:textColor="@color/black"
+                    android:background="@android:color/white"
+                    android:textColor="@android:color/black"
                     android:text="0" />
             </LinearLayout>
             <TextView
@@ -120,8 +175,8 @@
                 android:layout_height="30dp"
                 android:layout_marginTop="10dp"
                 android:textSize="20sp"
-                android:background="@color/white"
-                android:textColor="@color/black"
+                android:background="@android:color/white"
+                android:textColor="@android:color/black"
                 android:text="0" />
         </LinearLayout>
     </RelativeLayout>

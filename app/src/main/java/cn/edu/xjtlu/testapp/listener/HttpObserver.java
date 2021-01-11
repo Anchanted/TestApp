@@ -11,17 +11,16 @@ import io.reactivex.disposables.Disposable;
 public class HttpObserver<T> extends ObserverAdapter<T> {
     private static final String TAG = HttpObserver.class.getSimpleName();
     private Activity activity;
-    private boolean showLoading;
+//    private boolean showLoading;
 
     public HttpObserver() {}
 
     public HttpObserver(Activity activity, boolean showLoading) {
         this.activity = activity;
-        this.showLoading = showLoading;
+//        this.showLoading = showLoading;
     }
 
     public void onSucceed(T data) {
-
     }
 
     public boolean onFailed(T data, Throwable e) {
@@ -31,16 +30,16 @@ public class HttpObserver<T> extends ObserverAdapter<T> {
     @Override
     public void onSubscribe(@NonNull Disposable d) {
         super.onSubscribe(d);
-        if (this.showLoading) {
-            LoadingUtil.showLoading(activity);
-        }
+//        if (this.showLoading) {
+//            LoadingUtil.showLoading(activity);
+//        }
     }
 
     @Override
     public void onNext(@NonNull T t) {
         super.onNext(t);
 
-        checkHideLoading();
+//        checkHideLoading();
 
         if (isSucceed(t)) {
             onSucceed(t);
@@ -53,16 +52,16 @@ public class HttpObserver<T> extends ObserverAdapter<T> {
     public void onError(@NonNull Throwable e) {
         super.onError(e);
 
-        checkHideLoading();
+//        checkHideLoading();
 
         requestErrorHandler(null, e);
     }
 
-    private void checkHideLoading() {
-        if (this.showLoading) {
-            LoadingUtil.hideLoading();
-        }
-    }
+//    private void checkHideLoading() {
+//        if (this.showLoading) {
+//            LoadingUtil.hideLoading();
+//        }
+//    }
 
     protected boolean isSucceed(T t) {
         if (t instanceof Result) {

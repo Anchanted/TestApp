@@ -1,5 +1,8 @@
 <resources>
     <string name="loading">Cargando...</string>
-    <string name="choose_floor">Elige un piso de %s para entrar</string>
+    <string name="choose_floor">Elige un piso en %s para entrar</string>
     <string name="button_cancel">Cancelar</string>
+    <string name="network_error_text">Fallido en pedir datos</string>
+    <string name="error_text">Fallido en cargar datos</string>
+    <string name="refresh_button_text">Actualizar</string>
 </resources>

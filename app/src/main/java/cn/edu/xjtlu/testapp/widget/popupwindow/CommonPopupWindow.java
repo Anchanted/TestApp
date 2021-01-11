@@ -35,7 +35,7 @@ public abstract class CommonPopupWindow {
         mInstance = new PopupWindow(contentView, width, height);
         mInstance.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
         mInstance.setOutsideTouchable(true);
-//        mInstance.setFocusable(true);
+        mInstance.setFocusable(true);
         mInstance.setTouchable(true);
     }
 
@@ -45,6 +45,7 @@ public abstract class CommonPopupWindow {
     public void showAtLocation(View parent, int gravity, int x, int y) {
         mInstance.showAtLocation(parent, gravity, x, y);
     }
+    public boolean isShowing() { return mInstance.isShowing(); }
     public void dismiss() {
         mInstance.dismiss();
     }

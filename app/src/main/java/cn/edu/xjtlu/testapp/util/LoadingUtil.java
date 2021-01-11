@@ -2,35 +2,36 @@ package cn.edu.xjtlu.testapp.util;
 
 import android.app.Activity;
 import android.app.ProgressDialog;
+import android.view.View;
 
 import cn.edu.xjtlu.testapp.R;
+import cn.edu.xjtlu.testapp.widget.LoadingDialog;
 
 public class LoadingUtil {
-    private static ProgressDialog progressDialog;
+    private static LoadingDialog mDialog;
 
     public static void showLoading(Activity activity) {
-        showLoading(activity, activity.getString(R.string.loading));
+        showLoading(activity, null);
     }
 
-    public static void showLoading(Activity activity, String message) {
-        if (activity == null || activity.isFinishing()) return;
-
-        if (progressDialog != null) {
-            return;
+    public static void showLoading(Activity activity, View.OnClickListener listener) {
+        if (mDialog != null && mDialog.isShowing()) {
+            mDialog.dismiss();
         }
 
-        progressDialog = new ProgressDialog(activity);
-        progressDialog.setTitle("提示");
-        progressDialog.setMessage(message);
-        progressDialog.setCancelable(false);
-        progressDialog.show();
+        if (activity == null || activity.isFinishing()) return;
+
+        mDialog = new LoadingDialog(activity, listener);
+//        progressDialog.setMessage(message);
+        mDialog.setCancelable(false);
+        mDialog.show();
     }
 
     public static void hideLoading() {
-        if (progressDialog != null && progressDialog.isShowing()) {
-            progressDialog.hide();
-            progressDialog.dismiss();
-            progressDialog = null;
+        if (mDialog != null && mDialog.isShowing()) {
+            mDialog.hide();
+            mDialog.dismiss();
         }
+        mDialog = null;
     }
 }

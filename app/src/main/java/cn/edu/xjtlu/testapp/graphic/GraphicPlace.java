@@ -54,6 +54,8 @@ public class GraphicPlace implements Comparable<GraphicPlace>{
 
     public int displayAlpha;
 
+    public boolean displayAnimationForward;
+
     public final int textWidth;
 
     public final int textHeight;
@@ -83,8 +85,8 @@ public class GraphicPlace implements Comparable<GraphicPlace>{
         this.iconLevel = pp.getIconLevel();
         this.displayName = pp.getDisplayIconName();
         this.staticLayout = layout;
-        this.displayAnimator = ValueAnimator.ofInt(0, 100);
-        this.displayAnimator.setDuration(100);
+        this.displayAnimator = ValueAnimator.ofInt(0, 255);
+        this.displayAnimator.setDuration(200);
         this.displayAnimator.addUpdateListener(animation -> displayAlpha = ((Number) animation.getAnimatedValue()).intValue());
         this.textHeight = layout.getHeight();
         this.halfTextHeight = textHeight / 2f;

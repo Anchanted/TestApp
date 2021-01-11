@@ -10,7 +10,7 @@ public interface Service {
     @GET("floor/campus")
     Observable<Result<String>> getCampusInfo();
 
-    @GET("floor/{buildingId}/{floorId}")
+    @GET("floor/{floorId}/{buildingId}")
     Observable<Result<String>> getFloorInfo(@Path("floorId") Integer floorId, @Path("buildingId") Integer buildingId);
 
     @GET("place/")

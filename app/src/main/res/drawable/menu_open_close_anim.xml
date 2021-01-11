@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<animated-vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:drawable="@drawable/ic_menu">
+<!--    <aapt:attr name="android:drawable">-->
+<!--        <vector>-->
+<!--        </vector>-->
+<!--    </aapt:attr>-->
+<!--    <target-->
+<!--        android:name="path_top"-->
+<!--        android:animation="@animator/menu_open_close_top"/>-->
+<!--    <target-->
+<!--        android:name="path_bottom"-->
+<!--        android:animation="@animator/menu_open_close_bottom"/>-->
+<!--    <target-->
+<!--        android:name="path_middle"-->
+<!--        android:animation="@animator/menu_open_close_middle"/>-->
+
+    <target
+        android:name="path_top">
+        <aapt:attr name="android:animation">
+            <objectAnimator
+                android:duration="300"
+                android:propertyName="pathData"
+                android:valueFrom="M20,20L80,80"
+                android:valueTo="M20,80L80,80"
+                android:valueType="pathType">
+            </objectAnimator>
+        </aapt:attr>
+    </target>
+    <target
+        android:name="path_bottom">
+        <aapt:attr name="android:animation">
+            <objectAnimator
+                android:duration="300"
+                android:propertyName="pathData"
+                android:valueFrom="M20,80L80,20"
+                android:valueTo="M20,20L80,20"
+                android:valueType="pathType">
+            </objectAnimator>
+        </aapt:attr>
+    </target>
+    <target
+        android:name="path_middle">
+        <aapt:attr name="android:animation">
+            <objectAnimator
+                android:duration="300"
+                android:propertyName="pathData"
+                android:valueFrom="M-80,50L-20,50"
+                android:valueTo="M20,50L80,50"
+                android:valueType="pathType">
+            </objectAnimator>
+        </aapt:attr>
+    </target>
+</animated-vector>

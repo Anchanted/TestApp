@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<animated-selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:state_checked="true"
+        android:id="@+id/menu_open"
+        android:drawable="@drawable/ic_menu_close"/>
+
+    <item
+        android:id="@+id/menu_close"
+        android:drawable="@drawable/ic_menu"/>
+
+    <transition
+        android:drawable="@drawable/menu_close_open_anim"
+        android:fromId="@id/menu_close"
+        android:toId="@id/menu_open"/>
+
+    <transition
+        android:drawable="@drawable/menu_open_close_anim"
+        android:fromId="@id/menu_open"
+        android:toId="@id/menu_close"/>
+</animated-selector>

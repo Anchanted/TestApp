@@ -1,6 +1,6 @@
 package cn.edu.xjtlu.testapp.widget.loading;
 
-public interface LoadingBoxInterface {
+public interface LoadingStateManagerInterface {
     void showLoading();
 
     void showNetworkError();
@@ -9,7 +9,7 @@ public interface LoadingBoxInterface {
 
     void showEmpty();
 
-    void dismissLoading();
+    void dismiss();
 
     interface OnClickListener {
         void onClick();

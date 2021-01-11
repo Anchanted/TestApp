@@ -2,5 +2,5 @@
 <resources>
     <string name="icon_map" translatable="false">&#xe614;</string>
     <string name="icon_location" translatable="false">&#xe65f;</string>
-
+    <string name="icon_group" translatable="false">&#xe60a;</string>
 </resources>

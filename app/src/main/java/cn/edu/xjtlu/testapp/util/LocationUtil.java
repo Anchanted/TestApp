@@ -15,40 +15,30 @@ import android.provider.Settings;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
-import androidx.annotation.RequiresApi;
 
 import java.util.List;
 
 import cn.edu.xjtlu.testapp.domain.Point;
 
 public class LocationUtil implements LocationListener{
-    private static LocationUtil instance;
-    private Context mContext;
     private LocationManager locationManager;
     private String locationProvider;
-    private static MyLocationListener myLocationListener;
+    private MyLocationListener mListener;
 
     private LocationUtil() {}
 
-    private LocationUtil(Context context) {
-        mContext = context.getApplicationContext();
-        locationManager = (LocationManager) mContext.getSystemService(Context.LOCATION_SERVICE);
+    public LocationUtil(Context context, MyLocationListener listener) {
+        mListener = listener;
+        locationManager = (LocationManager) context.getSystemService(Context.LOCATION_SERVICE);
 
         List<String> providers = locationManager.getProviders(true);
 
+        LogUtil.d("LocationUtil", "LocationUtil: " + providers.toString());
         if (providers.contains(LocationManager.GPS_PROVIDER)) {
             locationProvider = LocationManager.GPS_PROVIDER;
         } else if (providers.contains(LocationManager.NETWORK_PROVIDER)) {
             locationProvider = LocationManager.NETWORK_PROVIDER;
         }
-    }
-
-    public static LocationUtil getInstance(Context context, MyLocationListener listener) {
-        myLocationListener = listener;
-        if (instance == null) {
-            instance = new LocationUtil(context);
-        }
-        return instance;
     }
 
     @SuppressLint("MissingPermission")
@@ -63,12 +53,12 @@ public class LocationUtil implements LocationListener{
 
     @SuppressLint("MissingPermission")
     public void requestLocationUpdates() {
-        if (locationProvider == null || myLocationListener == null) return;
+        if (locationProvider == null || mListener == null) return;
         locationManager.requestLocationUpdates(locationProvider, 3000, 1, this);
     }
 
     public void removeUpdates() {
-        if (myLocationListener == null) return;
+        if (mListener == null) return;
         locationManager.removeUpdates(this);
     }
 
@@ -96,7 +86,7 @@ public class LocationUtil implements LocationListener{
 
     @Override
     public void onLocationChanged(@NonNull Location location) {
-        myLocationListener.onLocationChanged(location);
+        mListener.onLocationChanged(location);
     }
 
     public interface MyLocationListener {

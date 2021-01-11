@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:drawable="@drawable/bs_button_secondary_selector"/>
+    <item
+        android:left="@dimen/menu_button_padding"
+        android:top="@dimen/menu_button_padding"
+        android:right="@dimen/menu_button_padding"
+        android:bottom="@dimen/menu_button_padding"
+        android:drawable="@drawable/menu_button_anim_selector"
+        android:width="@dimen/menu_button_icon_size"
+        android:height="@dimen/menu_button_icon_size"/>
+</layer-list>

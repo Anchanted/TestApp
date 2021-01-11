@@ -43,7 +43,7 @@ public class HttpUtil {
         }
 
         if (message != null) {
-            ToastUtil.shortToastError(message);
+            ToastUtil.longToastError(message);
         }
     }
 }

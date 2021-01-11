@@ -2,13 +2,13 @@ package cn.edu.xjtlu.testapp.graphic;
 
 import android.animation.TypeEvaluator;
 
-public class AnimationTransitionEvaluator implements TypeEvaluator<AnimationTransition> {
+public class AnimationTransformEvaluator implements TypeEvaluator<AnimationTransform> {
     @Override
-    public AnimationTransition evaluate(float fraction, AnimationTransition startValue, AnimationTransition endValue) {
+    public AnimationTransform evaluate(float fraction, AnimationTransform startValue, AnimationTransform endValue) {
         float currentTranslateX = startValue.translateX + fraction * (endValue.translateX - startValue.translateX);
         float currentTranslateY = startValue.translateY + fraction * (endValue.translateY - startValue.translateY);
         float currentScaleX = startValue.scaleX + fraction * (endValue.scaleX - startValue.scaleX);
         float currentScaleY = startValue.scaleY + fraction * (endValue.scaleY - startValue.scaleY);
-        return new AnimationTransition(currentTranslateX, currentTranslateY, currentScaleX, currentScaleY);
+        return new AnimationTransform(currentTranslateX, currentTranslateY, currentScaleX, currentScaleY);
     }
 }

@@ -7,14 +7,13 @@ import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
 import android.location.LocationListener;
 import android.os.Build;
+import android.util.Log;
 
-import androidx.annotation.RequiresApi;
+import java.util.Arrays;
 
 public class SensorUtil implements SensorEventListener{
-    private static SensorUtil instance;
-    private Context mContext;
     private SensorManager sensorManager;
-    private static MySensorEventListener mySensorEventListener;
+    private MySensorEventListener mListener;
 
     private final float[] accelerometerReading = new float[3];
     private final float[] magnetometerReading = new float[3];
@@ -24,17 +23,9 @@ public class SensorUtil implements SensorEventListener{
 
     private SensorUtil() {}
 
-    private SensorUtil(Context context) {
-        mContext = context.getApplicationContext();
-        sensorManager = (SensorManager) mContext.getSystemService(Context.SENSOR_SERVICE);
-    }
-
-    public static SensorUtil getInstance(Context context, MySensorEventListener listener) {
-        mySensorEventListener = listener;
-        if (instance == null) {
-            instance = new SensorUtil(context);
-        }
-        return instance;
+    public SensorUtil(Context context, MySensorEventListener listener) {
+        mListener = listener;
+        sensorManager = (SensorManager) context.getSystemService(Context.SENSOR_SERVICE);
     }
 
     public void registerListener() {
@@ -65,8 +56,7 @@ public class SensorUtil implements SensorEventListener{
             System.arraycopy(event.values, 0, magnetometerReading,
                     0, magnetometerReading.length);
         }
-        float direction = (float) Math.toDegrees(orientationAngles[0]);
-        mySensorEventListener.onSensorUpdate(direction);
+        updateOrientationAngles();
     }
 
     @Override
@@ -74,7 +64,21 @@ public class SensorUtil implements SensorEventListener{
 
     }
 
+    public void updateOrientationAngles() {
+        // Update rotation matrix, which is needed to update orientation angles.
+        SensorManager.getRotationMatrix(rotationMatrix, null,
+                accelerometerReading, magnetometerReading);
+
+        // "rotationMatrix" now has up-to-date information.
+
+        SensorManager.getOrientation(rotationMatrix, orientationAngles);
+
+        // "orientationAngles" now has up-to-date information.
+        float direction = (float) Math.toDegrees(orientationAngles[0]);
+        mListener.onSensorUpdate((int) Math.round(direction));
+    }
+
     public interface MySensorEventListener {
-        void onSensorUpdate(double direction);
+        void onSensorUpdate(int direction);
     }
 }

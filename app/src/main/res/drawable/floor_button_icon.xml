@@ -2,7 +2,6 @@
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
     <item
         android:drawable="@drawable/ic_arrow_down"
-        android:width="14dp"
-        android:height="14dp">
-    </item>
+        android:width="@dimen/spinner_icon_size"
+        android:height="@dimen/spinner_icon_size"/>
 </layer-list>

@@ -2,39 +2,60 @@ package cn.edu.xjtlu.testapp;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.annotation.RequiresApi;
 
 import android.Manifest;
+import android.app.ActivityOptions;
 import android.app.AlertDialog;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.res.Configuration;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.graphics.Color;
 import android.graphics.PointF;
 import android.graphics.Typeface;
 import android.graphics.drawable.Drawable;
+import android.location.Location;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.provider.Settings;
+import android.text.Layout;
+import android.transition.Slide;
+import android.transition.TransitionInflater;
+import android.util.TypedValue;
+import android.view.Gravity;
+import android.view.LayoutInflater;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.Window;
 import android.widget.AdapterView;
+import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.CompoundButton;
+import android.widget.FrameLayout;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
-import android.widget.RelativeLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 import android.widget.ToggleButton;
 
 import com.bumptech.glide.Glide;
+import com.bumptech.glide.RequestBuilder;
+import com.bumptech.glide.RequestManager;
+import com.bumptech.glide.load.DataSource;
+import com.bumptech.glide.load.engine.GlideException;
+import com.bumptech.glide.request.RequestListener;
 import com.bumptech.glide.request.target.CustomTarget;
+import com.bumptech.glide.request.target.Target;
 import com.bumptech.glide.request.transition.Transition;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import org.w3c.dom.Text;
+
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -49,7 +70,6 @@ import cn.edu.xjtlu.testapp.domain.Floor;
 import cn.edu.xjtlu.testapp.domain.Place;
 import cn.edu.xjtlu.testapp.domain.PlainPlace;
 import cn.edu.xjtlu.testapp.listener.HttpObserver;
-import cn.edu.xjtlu.testapp.listener.OnPlaceSelectedListener;
 import cn.edu.xjtlu.testapp.util.AESUtil;
 import cn.edu.xjtlu.testapp.util.LoadingUtil;
 import cn.edu.xjtlu.testapp.activity.BaseCommonActivity;
@@ -57,7 +77,12 @@ import cn.edu.xjtlu.testapp.util.LocationUtil;
 import cn.edu.xjtlu.testapp.util.LogUtil;
 import cn.edu.xjtlu.testapp.util.ResourceUtil;
 import cn.edu.xjtlu.testapp.util.SensorUtil;
+import cn.edu.xjtlu.testapp.util.ToastUtil;
+import cn.edu.xjtlu.testapp.widget.FloorAlertDialog;
+import cn.edu.xjtlu.testapp.widget.loading.LoadingStateManager;
+import cn.edu.xjtlu.testapp.widget.loading.LoadingStateManagerInterface;
 import cn.edu.xjtlu.testapp.widget.popupwindow.FloorPopupWindow;
+import io.reactivex.disposables.Disposable;
 import permissions.dispatcher.NeedsPermission;
 import permissions.dispatcher.OnNeverAskAgain;
 import permissions.dispatcher.OnPermissionDenied;
@@ -69,17 +94,26 @@ import permissions.dispatcher.RuntimePermissions;
 public class MainActivity extends BaseCommonActivity {
     private static final String TAG = MainActivity.class.getSimpleName();
 
-    @BindView(R.id.canvasView)
+    private LoadingStateManager activityLoadingManager;
+    private LoadingStateManager canvasLoadingManager;
+
+    @BindView(R.id.cv)
     public CanvasView cv;
-    @BindView(R.id.campusBtn)
-    public Button campusBtn;
-    @BindView(R.id.locationBtn)
-    public ToggleButton locationBtn;
-    @BindView(R.id.codeTextView)
-    public TextView codeTv;
-    @BindView(R.id.floorBtn)
+    @BindView(R.id.button_campus)
+    public Button campusButton;
+    @BindView(R.id.tv_code)
+    public TextView tvCode;
+    @BindView(R.id.button_floor)
     public Button floorButton;
     private FloorPopupWindow floorPopupWindow;
+    @BindView(R.id.iv_compass)
+    public ImageView ivCompass;
+    @BindView(R.id.button_compass)
+    public ToggleButton compassButton;
+    @BindView(R.id.button_location)
+    public ToggleButton locationButton;
+    @BindView(R.id.button_occupation)
+    public ToggleButton occupationButton;
 
     @BindView(R.id.button_group_left_top)
     public LinearLayout buttonGroupLT;
@@ -87,6 +121,8 @@ public class MainActivity extends BaseCommonActivity {
     public LinearLayout buttonGroupRB;
     @BindView(R.id.floor_button_layout)
     public LinearLayout floorButtonLayout;
+    @BindView(R.id.compass_layout)
+    public FrameLayout compassLayout;
 
     @BindView(R.id.tv_latitude)
     public TextView tvLatitude;
@@ -95,116 +131,126 @@ public class MainActivity extends BaseCommonActivity {
     @BindView(R.id.tv_orientation)
     public TextView tvOrientation;
 
-    private Handler mHandler;
+    private final Handler mHandler = new Handler();
     private Thread mThread;
     private LocationUtil locationUtil;
     private SensorUtil sensorUtil;
+    private FloorAlertDialog floorAlertDialog;
+    private Disposable placeRequestDisposable;
 
     private Integer floorId;
     private Integer buildingId;
+    @NonNull
+    private Floor currentFloor = new Floor();
+    private int floorDirection;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
+
+        floorId = (Integer) getIntent().getSerializableExtra("floorId");
+        buildingId = (Integer) getIntent().getSerializableExtra("buildingId");
+    }
 
     @Override
     protected void initViews() {
         super.initViews();
+
+        setPageColor(Color.WHITE);
+
+        activityLoadingManager = new LoadingStateManager.Builder(getMainActivity(), findViewById(R.id.button_group))
+                .setLoadingView(null, null)
+                .setNetworkErrorView(null, null, null)
+                .setOnNetworkErrorRetryClickListener(null, new LoadingStateManagerInterface.OnClickListener() {
+                    @Override
+                    public void onClick() {
+                        requestMapData();
+                    }
+                })
+                .setErrorView(null, null)
+                .setOnErrorRetryClickListener(null, new LoadingStateManagerInterface.OnClickListener() {
+                    @Override
+                    public void onClick() {
+                        requestMapData();
+                    }
+                })
+                .build();
+
+        canvasLoadingManager = new LoadingStateManager.Builder(getMainActivity(), cv)
+                .setLoadingView(null)
+                .setNetworkErrorView(null, null)
+                .setOnNetworkErrorRetryClickListener(null, new LoadingStateManagerInterface.OnClickListener() {
+                    @Override
+                    public void onClick() {
+                        loadImage();
+                    }
+                })
+                .setErrorView(null, null)
+                .setOnErrorRetryClickListener(null, new LoadingStateManagerInterface.OnClickListener() {
+                    @Override
+                    public void onClick() {
+                        loadImage();
+                    }
+                })
+                .build();
+
+//        floorAlertDialog = new FloorAlertDialog(getMainActivity(), new FloorAlertDialog.OnItemClickListener() {
+//            @Override
+//            public void onClick(Place building, int index) {
+//                ObjectMapper mapper = new ObjectMapper();
+//                Map<String, Object> extraInfo = (Map<String, Object>) building.getExtraInfo();
+//                List<Floor> floorList = null;
+//                try {
+//                    floorList = Arrays.asList(mapper.readValue(mapper.writeValueAsString(extraInfo.get("floorList")), Floor[].class));
+//                } catch (JsonProcessingException e) {
+//                    e.printStackTrace();
+//                }
+//
+//                Toast.makeText(getApplicationContext(), floorList.get(index).getName(), Toast.LENGTH_SHORT).show();
+//
+//                Intent intent = new Intent(MainActivity.this, MainActivity.class);
+//                intent.putExtra("floorId", floorList.get(index).getId());
+//                intent.putExtra("buildingId", building.getId());
+//
+//                startActivityAndFinish(intent);
+//            }
+//        });
+
         getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR | View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR);
 
 //        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
 
         Typeface iconfont = Typeface.createFromAsset(getAssets(), "font/iconfont.ttf");
-        campusBtn.setTypeface(iconfont);
-        locationBtn.setTypeface(iconfont);
+        campusButton.setTypeface(iconfont);
+        locationButton.setTypeface(iconfont);
+        occupationButton.setTypeface(iconfont);
         if (floorId != null && buildingId != null) {
-            buttonGroupLT.setVisibility(View.VISIBLE);
-            buttonGroupRB.setVisibility(View.GONE);
+            campusButton.setVisibility(View.VISIBLE);
+            locationButton.setVisibility(View.GONE);
+            compassLayout.setVisibility(View.VISIBLE);
         } else {
-            buttonGroupLT.setVisibility(View.GONE);
-            buttonGroupRB.setVisibility(View.VISIBLE);
+            campusButton.setVisibility(View.GONE);
+            locationButton.setVisibility(View.VISIBLE);
+            compassLayout.setVisibility(View.GONE);
         }
-
-        LoadingUtil.showLoading(this);
-        mHandler = new Handler();
-        mThread = new Thread() {
-            @Override
-            public void run() {
-                LoadingUtil.hideLoading();
-            }
-        };
-        mHandler.postDelayed(mThread, 3000);
+        occupationButton.setVisibility(View.GONE);
     }
 
     @Override
     protected void initData() {
         super.initData();
 
-        Api.getInstance().getFloorInfo(this.floorId, this.buildingId).subscribe(new HttpObserver<Result<String>>() {
-            @RequiresApi(api = Build.VERSION_CODES.N)
-            @Override
-            public void onSucceed(@io.reactivex.annotations.NonNull Result<String> result) {
-                ObjectMapper mapper = new ObjectMapper();
-                try {
-                    String string = AESUtil.decrypt(result.getData());
-                    JsonNode rootNode = mapper.readTree(string);
-                    cv.setPlaceList(Arrays.asList(mapper.readValue(rootNode.get("placeList").toString(), PlainPlace[].class)));
-
-                    if (floorId == null) {
-                        loadImage(null);
-                    } else {
-                        Floor floor = mapper.readValue(rootNode.get("selectedFloor").toString(), Floor.class);
-                        floorButton.setText(floor.getName());
-                        loadImage(floor.getImgUrl());
-
-                        Place building = mapper.readValue(rootNode.get("building").toString(), Place.class);
-                        codeTv.setText(building.getCode());
-
-                        List<Floor> floorList = Arrays.asList(mapper.readValue(rootNode.get("floorList").toString(), Floor[].class));
-                        int position = 0;
-                        for (int i = 0; i < floorList.size(); i++) {
-                            if (floorId.equals(floorList.get(i).getId())) {
-                                position = i;
-                            }
-                        }
-                        FloorListAdapter adapter = new FloorListAdapter(getMainActivity(), floorList);
-                        adapter.setSelectedPosition(position);
-                        int ddWidth = getResources().getDimensionPixelSize(R.dimen.button_size);
-                        int ddHeight = getResources().getDimensionPixelSize(R.dimen.spinner_dropdown_item_height);
-                        int size = floorList == null ? 0 : floorList.size();
-                        floorPopupWindow = new FloorPopupWindow(getMainActivity(), R.layout.floor_dropdown, ddWidth, (int) Math.ceil(ddHeight * (size > 6 ? 6.5 : size)), adapter, new AdapterView.OnItemClickListener() {
-                            @Override
-                            public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
-                                LogUtil.d(TAG, "onItemSelected: " + floorList.get(position));
-                                adapter.setSelectedPosition(position);
-                                floorPopupWindow.dismiss();
-                                Floor floor = floorList.get(position);
-                                if (floor == null) return;
-                                if (floor.getId().equals(floorId)) return;
-                                Intent intent = new Intent(MainActivity.this, MainActivity.class);
-                                intent.putExtra("floorId", floorList.get(position).getId());
-                                intent.putExtra("buildingId", buildingId);
-
-                                startActivityAndFinish(intent);
-                            }
-                        });
-                        floorButtonLayout.setVisibility(View.VISIBLE);
-                    }
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-            }
-
-            @Override
-            public boolean onFailed(Result<String> data, @io.reactivex.annotations.NonNull Throwable e) {
-                e.printStackTrace();
-                return false;
-            }
-        });
+        requestMapData();
     }
 
     @Override
     protected void initListeners() {
         super.initListeners();
 
-        locationUtil = LocationUtil.getInstance(getMainActivity(), location -> {
-            if (location != null) {
+        locationUtil = new LocationUtil(getMainActivity(), new LocationUtil.MyLocationListener() {
+            @Override
+            public void onLocationChanged(@NonNull Location location) {
                 tvLatitude.setText(String.valueOf(location.getLatitude()));
                 tvLongitude.setText(String.valueOf(location.getLongitude()));
 //                LogUtil.d(TAG, location.getLatitude() + " " + location.getLongitude());
@@ -214,19 +260,39 @@ public class MainActivity extends BaseCommonActivity {
             }
         });
 
-        sensorUtil = SensorUtil.getInstance(getMainActivity(), direction -> {
+        sensorUtil = new SensorUtil(getMainActivity(), direction -> {
             tvOrientation.setText(String.valueOf(direction));
-            cv.setDirection(-45);
-//                LogUtil.d(TAG, "" + direction);
+            if (floorId != null && buildingId != null) {
+                int floorDirection = currentFloor.getDirection() == null ? 0 : currentFloor.getDirection();
+                compassButton.setRotation(direction + floorDirection);
+            } else {
+                cv.setDirection(direction);
+            }
+//            LogUtil.d(TAG, "" + direction);
         });
 
-        cv.setOnPlaceSelectedListener(new OnPlaceSelectedListener() {
+        cv.setOnCanvasDataUpdateListener(new CanvasView.OnCanvasDataUpdateListener() {
             @Override
             public void onPlaceSelected(PlainPlace place) {
+                if (!"building".equals(place.getPlaceType())) return;
                 Api.getInstance().getPlaceInfo(place.getId()).subscribe(new HttpObserver<Result<String>>() {
-                    @RequiresApi(api = Build.VERSION_CODES.N)
+                    @Override
+                    public void onSubscribe(@io.reactivex.annotations.NonNull Disposable d) {
+                        super.onSubscribe(d);
+                        placeRequestDisposable = d;
+                        LoadingUtil.showLoading(getMainActivity(), v -> {
+                            if (placeRequestDisposable != null) {
+                                placeRequestDisposable.dispose();
+                            }
+                            LoadingUtil.hideLoading();
+                        });
+                    }
+
                     @Override
                     public void onSucceed(@io.reactivex.annotations.NonNull Result<String> result) {
+                        placeRequestDisposable = null;
+                        LoadingUtil.hideLoading();
+
                         ObjectMapper mapper = new ObjectMapper();
                         try {
                             String string = AESUtil.decrypt(result.getData());
@@ -235,23 +301,40 @@ public class MainActivity extends BaseCommonActivity {
                             LogUtil.d(TAG, "onSucceed: " + place);
 
                             if ("building".equals(place.getPlaceType())) {
+//                                floorAlertDialog.updateData(place);
+//                                floorAlertDialog.show();
                                 Map<String, Object> extraInfo = (Map<String, Object>) place.getExtraInfo();
                                 List<Floor> floorList = Arrays.asList(mapper.readValue(mapper.writeValueAsString(extraInfo.get("floorList")), Floor[].class));
-                                String[] floorArr = floorList.stream().map(Floor::getName).toArray(String[]::new);
-                                AlertDialog.Builder dialog = new AlertDialog.Builder(MainActivity.this);
-                                dialog.setTitle(getString(R.string.choose_floor, place.getCode()))
-                                        .setItems(floorArr, (dialog1, index) -> {
-                                            Toast.makeText(getApplicationContext(), floorArr[index], Toast.LENGTH_SHORT).show();
+//                                String[] floorArr = floorList.stream().map(Floor::getName).toArray(String[]::new);
+                                List<String> floorNameList = new ArrayList<>();
+                                for (Floor floor : floorList) {
+                                   floorNameList.add(floor.getName());
+                                }
+                                ViewGroup titleLayout = (ViewGroup) LayoutInflater.from(getMainActivity()).inflate(R.layout.floor_dialog_title, null);
+                                TextView title = titleLayout.findViewById(R.id.floor_dialog_title_text);
+                                title.setText(getString(R.string.choose_floor, place.getCode()));
+                                ArrayAdapter<String> adapter = new ArrayAdapter<>(getMainActivity(), R.layout.floor_dialog_item, R.id.floor_dialog_item_text, floorNameList);
+                                AlertDialog dialog = new AlertDialog.Builder(MainActivity.this)
+                                        .setCustomTitle(titleLayout)
+                                        .setAdapter(adapter, new DialogInterface.OnClickListener() {
+                                            @Override
+                                            public void onClick(DialogInterface dialog, int index) {
+//                                            Toast.makeText(getApplicationContext(), floorArr[index], Toast.LENGTH_SHORT).show();
 
                                             Intent intent = new Intent(MainActivity.this, MainActivity.class);
                                             intent.putExtra("floorId", floorList.get(index).getId());
                                             intent.putExtra("buildingId", place.getId());
 
                                             startActivityAndFinish(intent);
+                                            }
                                         })
-                                        .setNegativeButton(getResources().getText(R.string.button_cancel), null)
+                                        .setNegativeButton(getString(R.string.button_cancel), null)
                                         .create();
                                 dialog.show();
+                                Button button = dialog.getButton(AlertDialog.BUTTON_NEGATIVE);
+                                button.setAllCaps(false);
+                                button.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 22);
+                                button.setTextColor(getResources().getColor(R.color.bs_primary));
                             }
                         } catch (Exception e) {
                             e.printStackTrace();
@@ -261,24 +344,20 @@ public class MainActivity extends BaseCommonActivity {
                     @Override
                     public boolean onFailed(Result<String> data, @io.reactivex.annotations.NonNull Throwable e) {
                         e.printStackTrace();
+                        placeRequestDisposable = null;
+                        LoadingUtil.hideLoading();
                         return false;
                     }
                 });
             }
+
+            @Override
+            public void onRotateUpdate(int rotate) {
+                floorDirection = (currentFloor.getDirection() == null ? 0 : currentFloor.getDirection()) + rotate;
+                ivCompass.setRotation(floorDirection);
+                compassButton.setRotation(floorDirection);
+            }
         });
-    }
-
-    @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_main);
-
-//        Integer floorId = 51;
-//        Integer buildingId = 12;
-//        Integer floorId = null;
-//        Integer buildingId = null;
-        floorId = (Integer) getIntent().getSerializableExtra("floorId");
-        buildingId = (Integer) getIntent().getSerializableExtra("buildingId");
     }
 
     @Override
@@ -286,7 +365,7 @@ public class MainActivity extends BaseCommonActivity {
         LogUtil.d(TAG, "onPause");
         super.onPause();
         cv.pause();
-        if (locationBtn.isChecked()) {
+        if (locationButton.isChecked()) {
             locationUtil.removeUpdates();
             sensorUtil.unregisterListener();
         }
@@ -296,7 +375,7 @@ public class MainActivity extends BaseCommonActivity {
     protected void onResume() {
         super.onResume();
         cv.resume();
-        if (locationBtn.isChecked()) {
+        if (locationButton.isChecked()) {
             locationUtil.requestLocationUpdates();
             sensorUtil.registerListener();
         }
@@ -304,15 +383,22 @@ public class MainActivity extends BaseCommonActivity {
 
     @Override
     protected void onDestroy() {
-        mHandler.removeCallbacks(mThread);
+        LogUtil.d(TAG, "onDestroy");
+        mHandler.removeCallbacksAndMessages(null);
+//        mHandler.removeCallbacks(mThread);
         super.onDestroy();
         if (floorPopupWindow != null) {
             floorPopupWindow.dismiss();
         }
-        if (locationBtn.isChecked()) {
+        if (locationButton.isChecked()) {
             locationUtil.removeUpdates();
             sensorUtil.unregisterListener();
         }
+        cv.destroy();
+        LoadingUtil.hideLoading();
+//        if (floorAlertDialog != null) {
+//            floorAlertDialog.dismiss();
+//        }
     }
 
     @Override
@@ -327,98 +413,32 @@ public class MainActivity extends BaseCommonActivity {
         }
     }
 
-    public void loadImage(String url) {
-        new Thread(new Runnable() {
-            @RequiresApi(api = Build.VERSION_CODES.N)
-            public void run() {
-                try {
-                    if (url == null) {
-                        Bitmap resource = BitmapFactory.decodeResource(getResources(), R.drawable.map);
-                        int color = resource.getPixel(2, 2);
-                        cv.setMapImage(resource);
-                        cv.setBackgroundColor(color);
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                            Window window = getWindow();
-                            window.setStatusBarColor(color);
-                            window.setNavigationBarColor(color);
-                        }
-                    } else {
-                        String imgUrl = url.startsWith("http") ? url : ResourceUtil.resourceUri(url);
-                        Glide.with(getMainActivity())
-                                .asBitmap()
-                                .load(imgUrl)
-                                .into(new CustomTarget<Bitmap>() {
-                                    @Override
-                                    public void onResourceReady(@NonNull Bitmap resource, @Nullable Transition<? super Bitmap> transition) {
-                                        int color = resource.getPixel(2, 2);
-                                        cv.setMapImage(resource);
-                                        cv.setBackgroundColor(color);
-                                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                                            Window window = getWindow();
-                                            window.setStatusBarColor(color);
-                                            window.setNavigationBarColor(color);
-                                        }
-
-//                                        Palette.from(resource)
-//                                                .generate(new Palette.PaletteAsyncListener() {
-//                                                    @Override
-//                                                    public void onGenerated(@Nullable Palette palette) {
-//                                                        Palette.Swatch swatch = palette.getMutedSwatch();
-//
-//                                                        if (swatch != null) {
-//                                                            int rgb = swatch.getRgb();
-//
-//                                                            cv.setBackgroundColor(rgb);
-//                                                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-//                                                                Window window = getWindow();
-//                                                                window.setStatusBarColor(rgb);
-//                                                                window.setNavigationBarColor(rgb);
-//                                                            }
-//                                                        }
-//                                                    }
-//                                                });
-                                    }
-
-                                    @Override
-                                    public void onLoadCleared(@Nullable Drawable placeholder) {
-
-                                    }
-                                });
-//                                .listener(new RequestListener<Bitmap>() {
-//                                    @Override
-//                                    public boolean onLoadFailed(@Nullable GlideException e, Object model, Target<Bitmap> target, boolean isFirstResource) {
-//                                        LogUtil.d(TAG, "onLoadFailed");
-//                                        return false;
-//                                    }
-//
-//                                    @Override
-//                                    public boolean onResourceReady(Bitmap resource, Object model, Target<Bitmap> target, DataSource dataSource, boolean isFirstResource) {
-//                                        LogUtil.d(TAG, "onResourceReady");
-//                                        return false;
-//                                    }
-//                                })
-//                                .submit()
-//                                .get();
-                    }
-
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-            }
-        }).start();
-    }
-
-    @OnClick(R.id.campusBtn)
+    @OnClick(R.id.button_campus)
     public void onCampusBtnClick(View v) {
         startActivityAndFinish(MainActivity.class);
     }
 
-    @OnClick(R.id.floorBtn)
+    @OnClick(R.id.button_floor)
     public void onFloorBtnClick(View v) {
-        floorPopupWindow.showAsDropDown(floorButton, 0, 0);
+        if (floorPopupWindow.isShowing()) {
+            floorPopupWindow.dismiss();
+        } else {
+            floorPopupWindow.showAsDropDown(floorButton, 0, 0);
+        }
     }
 
-    @OnCheckedChanged(R.id.locationBtn)
+    @OnCheckedChanged(R.id.button_compass)
+    public void onCompassLayoutClick(CompoundButton buttonView, boolean isChecked) {
+        if (isChecked) {
+            sensorUtil.registerListener();
+        } else {
+            sensorUtil.unregisterListener();
+            cv.setDirection(0);
+            compassButton.setRotation(floorDirection);
+        }
+    }
+
+    @OnCheckedChanged(R.id.button_location)
     public void onLocationBtnClick(CompoundButton buttonView, boolean isChecked) {
         if (isChecked) {
             checkLocationPermission();
@@ -441,7 +461,7 @@ public class MainActivity extends BaseCommonActivity {
     void onPermissionGranted() {
         if (!locationUtil.canGetLocation()) {
             new AlertDialog.Builder(this)
-                    .setMessage("Location Service is no enabled. Do you want to go to the Setting menu?")
+                    .setMessage("Location Service is not enabled. Do you want to go to the Setting menu?")
                     .setPositiveButton("Settings", new DialogInterface.OnClickListener() {
                         @Override
                         public void onClick(DialogInterface dialog, int which) {
@@ -499,5 +519,149 @@ public class MainActivity extends BaseCommonActivity {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
 
         MainActivityPermissionsDispatcher.onRequestPermissionsResult(this, requestCode, grantResults);
+    }
+
+    private void setPageColor(int color) {
+        cv.setBackgroundColor(color);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            Window window = getWindow();
+            window.setStatusBarColor(color);
+            window.setNavigationBarColor(color);
+        }
+    }
+
+    public void loadImage() {
+        canvasLoadingManager.dismiss();
+        canvasLoadingManager.showLoading();
+        mHandler.post(() -> {
+            try {
+                RequestBuilder<Bitmap> requestBuilder = Glide.with(getMainActivity()).asBitmap();
+                if (floorId == null) {
+                    requestBuilder = requestBuilder.load(R.drawable.map);
+                } else {
+                    String url = currentFloor.getImgUrl();
+                    String imgUrl = url.startsWith("http") ? url : ResourceUtil.resourceUri(url);
+                    requestBuilder = requestBuilder.load(imgUrl);
+                }
+                requestBuilder.listener(new RequestListener<Bitmap>() {
+                            @Override
+                            public boolean onLoadFailed(@Nullable GlideException e, Object model, Target<Bitmap> target, boolean isFirstResource) {
+                                LogUtil.d(TAG, "onLoadFailed");
+                                canvasLoadingManager.showNetworkError();
+                                return false;
+                            }
+
+                            @Override
+                            public boolean onResourceReady(Bitmap resource, Object model, Target<Bitmap> target, DataSource dataSource, boolean isFirstResource) {
+                                LogUtil.d(TAG, "onResourceReady1");
+                                return false;
+                            }
+                        })
+                        .into(new CustomTarget<Bitmap>() {
+                            @Override
+                            public void onResourceReady(@NonNull Bitmap resource, @Nullable Transition<? super Bitmap> transition) {
+                                LogUtil.d(TAG, "onResourceReady2");
+                                cv.setMapImage(resource);
+                                setPageColor(resource.getPixel(2, 2));
+                                canvasLoadingManager.dismiss();
+//                                Palette.from(resource)
+//                                        .generate(new Palette.PaletteAsyncListener() {
+//                                            @Override
+//                                            public void onGenerated(@Nullable Palette palette) {
+//                                                Palette.Swatch swatch = palette.getMutedSwatch();
+//
+//                                                if (swatch != null) {
+//                                                    int rgb = swatch.getRgb();
+//                                                    setPageColor(rgb);
+//                                                }
+//                                            }
+//                                        });
+                            }
+
+                            @Override
+                            public void onLoadCleared(@Nullable Drawable placeholder) {
+                                LogUtil.d(TAG, "onLoadCleared");
+                            }
+                        });
+//                                .submit()
+//                                .get();
+
+            } catch (Exception e) {
+                e.printStackTrace();
+                canvasLoadingManager.showError();
+            }
+        });
+    }
+
+    public void requestMapData() {
+        activityLoadingManager.dismiss();
+        activityLoadingManager.showLoading();
+
+        Api.getInstance().getFloorInfo(this.floorId, this.buildingId).subscribe(new HttpObserver<Result<String>>() {
+            @Override
+            public void onSucceed(@io.reactivex.annotations.NonNull Result<String> result) {
+                ObjectMapper mapper = new ObjectMapper();
+                try {
+                    String string = AESUtil.decrypt(result.getData());
+                    JsonNode rootNode = mapper.readTree(string);
+                    cv.setPlaceList(Arrays.asList(mapper.readValue(rootNode.get("placeList").toString(), PlainPlace[].class)));
+
+                    if (floorId == null) {
+                        loadImage();
+                    } else {
+                        currentFloor = mapper.readValue(rootNode.get("selectedFloor").toString(), Floor.class);
+                        floorButton.setText(currentFloor.getName());
+                        loadImage();
+
+                        Place building = mapper.readValue(rootNode.get("building").toString(), Place.class);
+                        tvCode.setText(building.getCode());
+
+                        occupationButton.setVisibility((currentFloor.getHasOccupation() == null || !currentFloor.getHasOccupation()) ? View.GONE : View.VISIBLE);
+
+                        List<Floor> floorList = Arrays.asList(mapper.readValue(rootNode.get("floorList").toString(), Floor[].class));
+                        int position = 0;
+                        for (int i = 0; i < floorList.size(); i++) {
+                            if (floorId.equals(floorList.get(i).getId())) {
+                                position = i;
+                            }
+                        }
+                        FloorListAdapter adapter = new FloorListAdapter(getMainActivity(), floorList);
+                        adapter.setSelectedPosition(position);
+                        int ddWidth = getResources().getDimensionPixelSize(R.dimen.button_size);
+                        int ddHeight = getResources().getDimensionPixelSize(R.dimen.spinner_dropdown_item_height);
+                        floorPopupWindow = new FloorPopupWindow(getMainActivity(), R.layout.floor_dropdown, ddWidth, (int) Math.ceil(ddHeight * (floorList.size() > 6 ? 6.5 : floorList.size())), adapter, (parent, view, position1, id) -> {
+                            LogUtil.d(TAG, "onItemSelected: " + floorList.get(position1));
+                            adapter.setSelectedPosition(position1);
+                            floorPopupWindow.dismiss();
+                            Floor floor = floorList.get(position1);
+                            if (floor == null) return;
+                            if (floor.getId().equals(floorId)) return;
+                            Intent intent = new Intent(MainActivity.this, MainActivity.class);
+                            intent.putExtra("floorId", floorList.get(position1).getId());
+                            intent.putExtra("buildingId", buildingId);
+
+                            startActivityAndFinish(intent);
+//                                getWindow().setExitTransition(TransitionInflater.from(getMainActivity()).inflateTransition(R.transition.slide_up));
+//                                getWindow().setEnterTransition(TransitionInflater.from(getMainActivity()).inflateTransition(R.transition.slide_up));
+//                                startActivity(intent, ActivityOptions.makeSceneTransitionAnimation(getMainActivity()).toBundle());
+//                                finish();
+                        });
+                        floorButtonLayout.setVisibility(View.VISIBLE);
+                    }
+                    buttonGroupRB.setVisibility(View.VISIBLE);
+                    activityLoadingManager.dismiss();
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    activityLoadingManager.showError();
+                }
+            }
+
+            @Override
+            public boolean onFailed(Result<String> data, @io.reactivex.annotations.NonNull Throwable e) {
+                e.printStackTrace();
+                activityLoadingManager.showNetworkError();
+                return false;
+            }
+        });
     }
 }

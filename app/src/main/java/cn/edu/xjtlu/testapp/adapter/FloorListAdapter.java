@@ -1,14 +1,11 @@
 package cn.edu.xjtlu.testapp.adapter;
 
 import android.content.Context;
-import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.ArrayAdapter;
 import android.widget.BaseAdapter;
 import android.widget.CheckedTextView;
-import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -48,7 +45,7 @@ public class FloorListAdapter extends BaseAdapter {
     public View getView(int position, @Nullable View convertView, @NonNull ViewGroup parent) {
         ViewHolder viewHolder;
         if (convertView == null) {
-            convertView = inflater.inflate(R.layout.spinner_dropdown_item, parent,false);
+            convertView = inflater.inflate(R.layout.floor_dropdown_item, parent,false);
             viewHolder = new ViewHolder();
             viewHolder.ctv = convertView.findViewById(R.id.ctv_floor_list_name);
 

@@ -32,7 +32,7 @@ public class FloorListAdapter extends BaseAdapter {
 
     @Override
     public Object getItem(int position) {
-        return mList.get(position);
+        return mList == null ? null : mList.get(position);
     }
 
     @Override

@@ -3,9 +3,11 @@ package cn.edu.xjtlu.testapp;
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 import android.animation.ValueAnimator;
+import android.annotation.SuppressLint;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.graphics.BlendMode;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Matrix;
@@ -17,6 +19,7 @@ import android.graphics.PorterDuff;
 import android.graphics.Rect;
 import android.graphics.RectF;
 import android.graphics.Region;
+import android.graphics.drawable.Drawable;
 import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
@@ -95,6 +98,9 @@ public class CanvasView extends SurfaceView implements SurfaceHolder.Callback, R
     private float halfIconSize;
     private float locationIconSize;
     private float halfLocationIconSize;
+    private final PointF virtualButtonPosition = new PointF(100, 100);
+    private int virtualButtonSize;
+    private boolean virtualButtonSelected;
     @NonNull
     private ValueAnimator mapAnimator = new ValueAnimator();
     private ValueAnimator backgroundColorAnimator;
@@ -112,6 +118,7 @@ public class CanvasView extends SurfaceView implements SurfaceHolder.Callback, R
     private List<PlainPlace> placeList;
     private boolean locationActivated;
     private Integer deviceDirection;
+    private boolean displayVirtualButton;
 
     public CanvasView(Context context) {
         super(context);
@@ -186,7 +193,9 @@ public class CanvasView extends SurfaceView implements SurfaceHolder.Callback, R
         while (this.doDrawing) {
             if (!this.surfaceHolder.getSurface().isValid()) continue;
 //            if (!this.labelComplete || !this.imageComplete) continue;
+            if (!this.labelComplete) continue;
             if ((canvas = this.surfaceHolder.lockCanvas()) != null) {
+                canvas.drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR);
                 this.drawMapInfo(canvas);
             }
             this.surfaceHolder.unlockCanvasAndPost(canvas);
@@ -197,7 +206,19 @@ public class CanvasView extends SurfaceView implements SurfaceHolder.Callback, R
     public boolean onTouchEvent(MotionEvent event){
 //        LogUtil.d(TAG, "onTouchEvent " + event.getAction());
         switch (event.getActionMasked()) {
+            case MotionEvent.ACTION_DOWN:
+                if (this.displayVirtualButton) {
+                    this.virtualButtonSelected = false;
+                    Object element = this.isPointInItem(event.getX(), event.getY());
+                    if (element instanceof Integer && (int) element == 4) {
+                        this.virtualButtonSelected = true;
+                    }
+                }
+                break;
             case MotionEvent.ACTION_MOVE:
+                if (event.getPointerCount() != 1 && this.virtualButtonSelected) {
+                    this.virtualButtonSelected = false;
+                }
                 if (this.doubleTapDown && !this.mapAnimator.isRunning()) {
                     float distance = event.getY() - this.doubleTapDownMotionEventPoint.y;
                     float scale = (distance - this.lastDoubleTapMotionEventDistance) / 300;
@@ -233,7 +254,26 @@ public class CanvasView extends SurfaceView implements SurfaceHolder.Callback, R
 
     @Override
     public boolean onScroll(MotionEvent e1, MotionEvent e2, float distanceX, float distanceY) {
-        this.manipulateMap(new AnimationTransform(-distanceX, -distanceY, 0, 0));
+        if (this.virtualButtonSelected) {
+            final PointF touchPoint = this.getTouchPoint(e2.getX(), e2.getY());
+            final float offset = this.virtualButtonSize / 2f;
+            float posX = touchPoint.x - offset;
+            float posY = touchPoint.y - offset;
+            if (touchPoint.x + offset > this.canvasWidth) {
+                posX = this.canvasWidth - this.virtualButtonSize;
+            } else if (posX < 0) {
+                posX = 0;
+            }
+            if (touchPoint.y + offset > this.canvasHeight) {
+                posY = this.canvasHeight - this.virtualButtonSize;
+            } else if (posY < 0) {
+                posY = 0;
+            }
+            this.virtualButtonPosition.x = posX;
+            this.virtualButtonPosition.y = posY;
+        } else {
+            this.manipulateMap(new AnimationTransform(-distanceX, -distanceY, 0, 0));
+        }
         return true;
     }
 
@@ -249,7 +289,11 @@ public class CanvasView extends SurfaceView implements SurfaceHolder.Callback, R
 
     @Override
     public boolean onSingleTapConfirmed(MotionEvent e) {
-        this.chooseItem(e.getX(), e.getY());
+        if (this.displayVirtualButton && this.virtualButtonSelected) {
+            setDisplayVirtualButton(false);
+        } else {
+            this.chooseItem(e.getX(), e.getY());
+        }
         return true;
     }
 
@@ -329,6 +373,7 @@ public class CanvasView extends SurfaceView implements SurfaceHolder.Callback, R
 
     }
 
+    @SuppressLint("UseCompatLoadingForDrawables")
     private void init(Context context) {
         this.mContext = context;
 
@@ -353,12 +398,20 @@ public class CanvasView extends SurfaceView implements SurfaceHolder.Callback, R
         this.imageMap.put("locationProbe", BitmapFactory.decodeResource(getResources(), R.drawable.location_probe));
         this.imageMap.put("locationMarker", BitmapFactory.decodeResource(getResources(), R.drawable.location_marker));
 
+        Drawable vectorDrawable = getResources().getDrawable(R.drawable.ic_display_button);
+        Bitmap bitmap = Bitmap.createBitmap(vectorDrawable.getIntrinsicWidth(),
+                vectorDrawable.getIntrinsicHeight(), Bitmap.Config.ARGB_8888);
+        Canvas canvas = new Canvas(bitmap);
+        vectorDrawable.setBounds(0, 0, canvas.getWidth(), canvas.getHeight());
+        vectorDrawable.draw(canvas);
+        this.imageMap.put("displayButton", bitmap);
+
         this.iconSize = getResources().getDimensionPixelSize(R.dimen.icon_size);
         this.halfIconSize = this.iconSize / 2;
         this.locationIconSize = this.iconSize * 1.5f;
         this.halfLocationIconSize = this.iconSize * 0.75f;
 
-        this.textPaint.setAntiAlias(true);
+//        this.textPaint.setAntiAlias(true);
         this.textPaint.setTextSize(getResources().getDimensionPixelSize(R.dimen.text_size));
         this.textPaint.setTextAlign(Paint.Align.CENTER);
         this.textPaint.setStyle(Paint.Style.FILL);
@@ -367,7 +420,7 @@ public class CanvasView extends SurfaceView implements SurfaceHolder.Callback, R
 //        this.textPaint.setShadowLayer(1, 0, 0, 0xffffffff);
         this.textPaint.setFakeBoldText(true);
 
-        this.drawPaint.setAntiAlias(true);
+//        this.drawPaint.setAntiAlias(true);
         this.drawPaint.setStrokeWidth(6);
         this.drawPaint.setStrokeJoin(Paint.Join.ROUND);
         this.drawPaint.setStrokeCap(Paint.Cap.ROUND);
@@ -536,6 +589,12 @@ public class CanvasView extends SurfaceView implements SurfaceHolder.Callback, R
                 this.drawImage(canvas, this.imageMap.get("locationProbe"), this.location.x, this.location.y, this.locationIconSize, this.locationIconSize, this.halfLocationIconSize, this.halfLocationIconSize, true, false, this.deviceDirection);
             }
             this.drawImage(canvas, this.imageMap.get("locationMarker"), this.location.x, this.location.y, this.locationIconSize, this.locationIconSize, this.halfLocationIconSize, this.halfLocationIconSize, true, false);
+        }
+
+        if (this.displayVirtualButton) {
+            canvas.save();
+            canvas.drawBitmap(this.imageMap.get("displayButton"), this.virtualButtonPosition.x, this.virtualButtonPosition.y, this.drawPaint);
+            canvas.restore();
         }
 
         canvas.restore();
@@ -771,6 +830,13 @@ public class CanvasView extends SurfaceView implements SurfaceHolder.Callback, R
     private Object isPointInItem(float pointX, float pointY) {
         // click on places
         PointF touchPoint = this.getTouchPoint(pointX, pointY);
+        if (this.displayVirtualButton) {
+            if (touchPoint.x >= this.virtualButtonPosition.x && touchPoint.x <= this.virtualButtonPosition.x + this.virtualButtonSize
+                && touchPoint.y >= this.virtualButtonPosition.y && touchPoint.y <= this.virtualButtonPosition.y + this.virtualButtonSize) {
+                return 4;
+            }
+        }
+
         int iconSizeSquared = (int) (this.iconSize * this.iconSize);
         RectF boundRect = new RectF();
         Object place = null;
@@ -910,6 +976,10 @@ public class CanvasView extends SurfaceView implements SurfaceHolder.Callback, R
         this.transformAdaption.translateX = Math.round((this.canvasWidth - this.imgWidth * this.transformAdaption.scaleX) / 2);
         this.transformAdaption.translateY = Math.round((this.canvasHeight - this.imgHeight * this.transformAdaption.scaleY) / 2);
 
+        this.virtualButtonSize = getResources().getDimensionPixelSize(R.dimen.button_size);
+        this.virtualButtonPosition.x = Math.round(this.canvasWidth * 0.98 - this.virtualButtonSize);
+        this.virtualButtonPosition.y = Math.round((this.canvasHeight - this.virtualButtonSize) / 2);
+
         if (this.labelComplete) {
             this.updatePlaceList();
         }
@@ -1026,21 +1096,14 @@ public class CanvasView extends SurfaceView implements SurfaceHolder.Callback, R
 
     @Override
     public void setBackgroundColor(int color) {
-        LogUtil.d(TAG, String.format("%x %x ===================================", this.backgroundColor, color));
         this.backgroundColorAnimator = ValueAnimator.ofArgb(this.backgroundColor, color);
         this.backgroundColorAnimator.setDuration(500);
-        this.backgroundColorAnimator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
-            @Override
-            public void onAnimationUpdate(ValueAnimator animation) {
-                backgroundColor = ((Number) animation.getAnimatedValue()).intValue();
-            }
-        });
-        this.mHandler.post(new Runnable() {
-            @Override
-            public void run() {
-                backgroundColorAnimator.start();
-            }
-        });
+        this.backgroundColorAnimator.addUpdateListener(animation -> backgroundColor = ((Number) animation.getAnimatedValue()).intValue());
+        this.mHandler.post(() -> backgroundColorAnimator.start());
+    }
+
+    public void setDisplayVirtualButton(boolean display) {
+        this.mListener.onDisplayVirtualButtonUpdate(this.displayVirtualButton = display);
     }
 
     private void updatePlaceList() {
@@ -1067,7 +1130,7 @@ public class CanvasView extends SurfaceView implements SurfaceHolder.Callback, R
 //        }
 
         this.refreshTextPosition();
-        this.mHandler.post(() -> refreshIconDisplay());
+        this.mHandler.post(this::refreshIconDisplay);
     }
 
     public void setLocation(PointF point) {
@@ -1088,5 +1151,7 @@ public class CanvasView extends SurfaceView implements SurfaceHolder.Callback, R
         void onPlaceSelected(PlainPlace place);
 
         void onRotateUpdate(int rotate);
+
+        void onDisplayVirtualButtonUpdate(boolean display);
     }
 }

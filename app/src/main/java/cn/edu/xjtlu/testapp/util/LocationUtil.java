@@ -7,6 +7,7 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.graphics.PointF;
+import android.location.Criteria;
 import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
@@ -20,12 +21,11 @@ import java.util.List;
 
 import cn.edu.xjtlu.testapp.domain.Point;
 
-public class LocationUtil implements LocationListener{
-    private LocationManager locationManager;
+public class LocationUtil implements LocationListener {
+    public static String TAG = LocationUtil.class.getSimpleName();
+    private final LocationManager locationManager;
     private String locationProvider;
-    private MyLocationListener mListener;
-
-    private LocationUtil() {}
+    private final MyLocationListener mListener;
 
     public LocationUtil(Context context, MyLocationListener listener) {
         mListener = listener;
@@ -33,7 +33,12 @@ public class LocationUtil implements LocationListener{
 
         List<String> providers = locationManager.getProviders(true);
 
-        LogUtil.d("LocationUtil", "LocationUtil: " + providers.toString());
+        LogUtil.d(TAG, "getProviders(true): " + providers.toString());
+        LogUtil.d(TAG, "getProviders(false): " + locationManager.getProviders(false).toString());
+        Criteria criteria = new Criteria();
+        criteria.setAccuracy(Criteria.ACCURACY_FINE);
+        LogUtil.d(TAG, "getBestProvider(true): " + locationManager.getBestProvider(criteria, true));
+        LogUtil.d(TAG, "getBestProvider(false): " + locationManager.getBestProvider(criteria, false));
         if (providers.contains(LocationManager.GPS_PROVIDER)) {
             locationProvider = LocationManager.GPS_PROVIDER;
         } else if (providers.contains(LocationManager.NETWORK_PROVIDER)) {
@@ -53,12 +58,11 @@ public class LocationUtil implements LocationListener{
 
     @SuppressLint("MissingPermission")
     public void requestLocationUpdates() {
-        if (locationProvider == null || mListener == null) return;
+        if (locationProvider == null) return;
         locationManager.requestLocationUpdates(locationProvider, 3000, 1, this);
     }
 
     public void removeUpdates() {
-        if (mListener == null) return;
         locationManager.removeUpdates(this);
     }
 
@@ -86,6 +90,7 @@ public class LocationUtil implements LocationListener{
 
     @Override
     public void onLocationChanged(@NonNull Location location) {
+        LogUtil.d(TAG, "onLocationChanged " + location);
         mListener.onLocationChanged(location);
     }
 
@@ -97,8 +102,8 @@ public class LocationUtil implements LocationListener{
         P1(new PointF(108, 78), new Point(31.277379, 120.731379)),
         P2(new PointF(604, 1333), new Point(31.269947, 120.734879));
 
-        private PointF imagePoint;
-        private Point geoPoint;
+        private final PointF imagePoint;
+        private final Point geoPoint;
 
         SamplePoint(PointF imagePoint, Point geoPoint) {
             this.imagePoint = imagePoint;

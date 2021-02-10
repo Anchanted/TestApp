@@ -1,5 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <selector xmlns:android="http://schemas.android.com/apk/res/android">
     <item android:drawable="@drawable/ic_compass_probe" android:state_checked="true"/>
-    <item android:drawable="@drawable/ic_compass_probe_pending"/>
+    <item>
+        <vector android:height="256dp" android:viewportHeight="1024"
+            android:viewportWidth="1024" android:width="256dp">
+            <path android:fillColor="#FFFF0000"
+                android:pathData="M512,10l-80,502l80,50l80,-50Z"
+                android:strokeColor="#dddddd" android:strokeLineCap="round"
+                android:strokeLineJoin="round" android:strokeWidth="18"/>
+        </vector>
+    </item>
 </selector>

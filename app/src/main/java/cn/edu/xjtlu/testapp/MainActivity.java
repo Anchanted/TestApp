@@ -4,6 +4,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import android.Manifest;
+import android.annotation.SuppressLint;
 import android.app.ActivityOptions;
 import android.app.AlertDialog;
 import android.content.DialogInterface;
@@ -64,7 +65,9 @@ import butterknife.BindView;
 import butterknife.OnCheckedChanged;
 import butterknife.OnClick;
 import cn.edu.xjtlu.testapp.adapter.FloorListAdapter;
+import cn.edu.xjtlu.testapp.adapter.MenuListAdapter;
 import cn.edu.xjtlu.testapp.api.Api;
+import cn.edu.xjtlu.testapp.domain.Point;
 import cn.edu.xjtlu.testapp.domain.response.Result;
 import cn.edu.xjtlu.testapp.domain.Floor;
 import cn.edu.xjtlu.testapp.domain.Place;
@@ -75,6 +78,7 @@ import cn.edu.xjtlu.testapp.util.LoadingUtil;
 import cn.edu.xjtlu.testapp.activity.BaseCommonActivity;
 import cn.edu.xjtlu.testapp.util.LocationUtil;
 import cn.edu.xjtlu.testapp.util.LogUtil;
+import cn.edu.xjtlu.testapp.util.NetworkUtil;
 import cn.edu.xjtlu.testapp.util.ResourceUtil;
 import cn.edu.xjtlu.testapp.util.SensorUtil;
 import cn.edu.xjtlu.testapp.util.ToastUtil;
@@ -82,6 +86,7 @@ import cn.edu.xjtlu.testapp.widget.FloorAlertDialog;
 import cn.edu.xjtlu.testapp.widget.loading.LoadingStateManager;
 import cn.edu.xjtlu.testapp.widget.loading.LoadingStateManagerInterface;
 import cn.edu.xjtlu.testapp.widget.popupwindow.FloorPopupWindow;
+import cn.edu.xjtlu.testapp.widget.popupwindow.MenuPopupWindow;
 import io.reactivex.disposables.Disposable;
 import permissions.dispatcher.NeedsPermission;
 import permissions.dispatcher.OnNeverAskAgain;
@@ -106,6 +111,10 @@ public class MainActivity extends BaseCommonActivity {
     @BindView(R.id.button_floor)
     public Button floorButton;
     private FloorPopupWindow floorPopupWindow;
+    @BindView(R.id.button_menu)
+    public Button menuButton;
+    private MenuPopupWindow menuPopupWindow;
+    private ToggleButton hideButton;
     @BindView(R.id.iv_compass)
     public ImageView ivCompass;
     @BindView(R.id.button_compass)
@@ -115,6 +124,8 @@ public class MainActivity extends BaseCommonActivity {
     @BindView(R.id.button_occupation)
     public ToggleButton occupationButton;
 
+    @BindView(R.id.button_group)
+    public View buttonGroup;
     @BindView(R.id.button_group_left_top)
     public LinearLayout buttonGroupLT;
     @BindView(R.id.button_group_right_bottom)
@@ -132,9 +143,9 @@ public class MainActivity extends BaseCommonActivity {
     public TextView tvOrientation;
 
     private final Handler mHandler = new Handler();
-    private Thread mThread;
     private LocationUtil locationUtil;
     private SensorUtil sensorUtil;
+    private NetworkUtil networkUtil;
     private FloorAlertDialog floorAlertDialog;
     private Disposable placeRequestDisposable;
 
@@ -153,6 +164,7 @@ public class MainActivity extends BaseCommonActivity {
         buildingId = (Integer) getIntent().getSerializableExtra("buildingId");
     }
 
+    @SuppressLint("InflateParams")
     @Override
     protected void initViews() {
         super.initViews();
@@ -235,6 +247,13 @@ public class MainActivity extends BaseCommonActivity {
             compassLayout.setVisibility(View.GONE);
         }
         occupationButton.setVisibility(View.GONE);
+
+        List<View> buttonList = new ArrayList<>();
+        hideButton = (ToggleButton) LayoutInflater.from(getMainActivity()).inflate(R.layout.hide_button,null, false);
+        hideButton.setVisibility(View.GONE);
+        hideButton.setTypeface(iconfont);
+        buttonList.add(hideButton);
+        menuPopupWindow = new MenuPopupWindow(LayoutInflater.from(getMainActivity()).inflate(R.layout.floor_dropdown, null, false), getResources().getDimensionPixelSize(R.dimen.button_size), ViewGroup.LayoutParams.WRAP_CONTENT, new MenuListAdapter(getMainActivity(), buttonList));
     }
 
     @Override
@@ -248,6 +267,13 @@ public class MainActivity extends BaseCommonActivity {
     protected void initListeners() {
         super.initListeners();
 
+        networkUtil = new NetworkUtil(getApplicationContext());
+
+        hideButton.setOnClickListener((buttonView) -> {
+            cv.setDisplayVirtualButton(hideButton.isChecked());
+            menuButton.performClick();
+        });
+
         locationUtil = new LocationUtil(getMainActivity(), new LocationUtil.MyLocationListener() {
             @Override
             public void onLocationChanged(@NonNull Location location) {
@@ -255,8 +281,8 @@ public class MainActivity extends BaseCommonActivity {
                 tvLongitude.setText(String.valueOf(location.getLongitude()));
 //                LogUtil.d(TAG, location.getLatitude() + " " + location.getLongitude());
 //                ToastUtil.shortToastSuccess(location.getLatitude() + " " + location.getLongitude());
-//                cv.setLocation(LocationUtil.geoToImage(new Point(location.getLatitude(), location.getLongitude())));
-                cv.setLocation(new PointF(600, 500));
+                cv.setLocation(LocationUtil.geoToImage(new Point(location.getLatitude(), location.getLongitude())));
+//                cv.setLocation(new PointF(600, 500));
             }
         });
 
@@ -288,6 +314,7 @@ public class MainActivity extends BaseCommonActivity {
                         });
                     }
 
+                    @SuppressLint("InflateParams")
                     @Override
                     public void onSucceed(@io.reactivex.annotations.NonNull Result<String> result) {
                         placeRequestDisposable = null;
@@ -310,7 +337,7 @@ public class MainActivity extends BaseCommonActivity {
                                 for (Floor floor : floorList) {
                                    floorNameList.add(floor.getName());
                                 }
-                                ViewGroup titleLayout = (ViewGroup) LayoutInflater.from(getMainActivity()).inflate(R.layout.floor_dialog_title, null);
+                                ViewGroup titleLayout = (ViewGroup) LayoutInflater.from(getMainActivity()).inflate(R.layout.floor_dialog_title, null, false);
                                 TextView title = titleLayout.findViewById(R.id.floor_dialog_title_text);
                                 title.setText(getString(R.string.choose_floor, place.getCode()));
                                 ArrayAdapter<String> adapter = new ArrayAdapter<>(getMainActivity(), R.layout.floor_dialog_item, R.id.floor_dialog_item_text, floorNameList);
@@ -357,6 +384,12 @@ public class MainActivity extends BaseCommonActivity {
                 ivCompass.setRotation(floorDirection);
                 compassButton.setRotation(floorDirection);
             }
+
+            @Override
+            public void onDisplayVirtualButtonUpdate(boolean display) {
+                hideButton.setChecked(display);
+                buttonGroup.setVisibility(display ? View.INVISIBLE : View.VISIBLE);
+            }
         });
     }
 
@@ -365,10 +398,12 @@ public class MainActivity extends BaseCommonActivity {
         LogUtil.d(TAG, "onPause");
         super.onPause();
         cv.pause();
+        LogUtil.d(TAG, "locationButton.isChecked() " + locationButton.isChecked());
         if (locationButton.isChecked()) {
             locationUtil.removeUpdates();
             sensorUtil.unregisterListener();
         }
+        networkUtil.unregister();
     }
 
     @Override
@@ -379,26 +414,25 @@ public class MainActivity extends BaseCommonActivity {
             locationUtil.requestLocationUpdates();
             sensorUtil.registerListener();
         }
+        networkUtil.register();
     }
 
     @Override
     protected void onDestroy() {
         LogUtil.d(TAG, "onDestroy");
         mHandler.removeCallbacksAndMessages(null);
-//        mHandler.removeCallbacks(mThread);
-        super.onDestroy();
+        cv.destroy();
         if (floorPopupWindow != null) {
             floorPopupWindow.dismiss();
         }
-        if (locationButton.isChecked()) {
-            locationUtil.removeUpdates();
-            sensorUtil.unregisterListener();
+        if (menuPopupWindow != null) {
+            menuPopupWindow.dismiss();
         }
-        cv.destroy();
         LoadingUtil.hideLoading();
 //        if (floorAlertDialog != null) {
 //            floorAlertDialog.dismiss();
 //        }
+        super.onDestroy();
     }
 
     @Override
@@ -424,6 +458,15 @@ public class MainActivity extends BaseCommonActivity {
             floorPopupWindow.dismiss();
         } else {
             floorPopupWindow.showAsDropDown(floorButton, 0, 0);
+        }
+    }
+
+    @OnClick(R.id.button_menu)
+    public void onMenuBtnClick(View v) {
+        if (menuPopupWindow.isShowing()) {
+            menuPopupWindow.dismiss();
+        } else {
+            menuPopupWindow.showAsDropDown(menuButton, 0, 0);
         }
     }
 
@@ -564,6 +607,7 @@ public class MainActivity extends BaseCommonActivity {
                                 cv.setMapImage(resource);
                                 setPageColor(resource.getPixel(2, 2));
                                 canvasLoadingManager.dismiss();
+                                hideButton.setVisibility(View.VISIBLE);
 //                                Palette.from(resource)
 //                                        .generate(new Palette.PaletteAsyncListener() {
 //                                            @Override
@@ -598,6 +642,7 @@ public class MainActivity extends BaseCommonActivity {
         activityLoadingManager.showLoading();
 
         Api.getInstance().getFloorInfo(this.floorId, this.buildingId).subscribe(new HttpObserver<Result<String>>() {
+            @SuppressLint("InflateParams")
             @Override
             public void onSucceed(@io.reactivex.annotations.NonNull Result<String> result) {
                 ObjectMapper mapper = new ObjectMapper();
@@ -627,19 +672,18 @@ public class MainActivity extends BaseCommonActivity {
                         }
                         FloorListAdapter adapter = new FloorListAdapter(getMainActivity(), floorList);
                         adapter.setSelectedPosition(position);
-                        int ddWidth = getResources().getDimensionPixelSize(R.dimen.button_size);
-                        int ddHeight = getResources().getDimensionPixelSize(R.dimen.spinner_dropdown_item_height);
-                        floorPopupWindow = new FloorPopupWindow(getMainActivity(), R.layout.floor_dropdown, ddWidth, (int) Math.ceil(ddHeight * (floorList.size() > 6 ? 6.5 : floorList.size())), adapter, (parent, view, position1, id) -> {
+                        int maxHeight = getResources().getDimensionPixelSize(R.dimen.spinner_dropdown_max_height);
+
+                        floorPopupWindow = new FloorPopupWindow(LayoutInflater.from(getMainActivity()).inflate(R.layout.floor_dropdown, null, false), getResources().getDimensionPixelSize(R.dimen.button_size), floorList.size() > 6 ? maxHeight : ViewGroup.LayoutParams.WRAP_CONTENT, adapter, (parent, view, position1, id) -> {
                             LogUtil.d(TAG, "onItemSelected: " + floorList.get(position1));
                             adapter.setSelectedPosition(position1);
-                            floorPopupWindow.dismiss();
+                            floorButton.performClick();
                             Floor floor = floorList.get(position1);
                             if (floor == null) return;
                             if (floor.getId().equals(floorId)) return;
                             Intent intent = new Intent(MainActivity.this, MainActivity.class);
                             intent.putExtra("floorId", floorList.get(position1).getId());
                             intent.putExtra("buildingId", buildingId);
-
                             startActivityAndFinish(intent);
 //                                getWindow().setExitTransition(TransitionInflater.from(getMainActivity()).inflateTransition(R.transition.slide_up));
 //                                getWindow().setEnterTransition(TransitionInflater.from(getMainActivity()).inflateTransition(R.transition.slide_up));

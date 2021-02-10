@@ -1,52 +1,35 @@
 package cn.edu.xjtlu.testapp.widget.popupwindow;
 
+import android.annotation.SuppressLint;
 import android.content.Context;
 import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
 import android.view.LayoutInflater;
 import android.view.View;
+import android.view.ViewGroup;
 import android.widget.PopupWindow;
 
 import androidx.annotation.LayoutRes;
 
-public abstract class CommonPopupWindow {
-    private int width;
-    private int height;
-    protected Context context;
-    protected View contentView;
-    protected PopupWindow mInstance;
+import cn.edu.xjtlu.testapp.R;
 
-    public CommonPopupWindow(Context context, @LayoutRes int layoutRes, int width, int height) {
-        this.width = width;
-        this.height = height;
-        this.context = context.getApplicationContext();
-        this.contentView = LayoutInflater.from(context).inflate(layoutRes, null, false);
-//        initView();
-//        initListener();
+public abstract class CommonPopupWindow extends PopupWindow{
+    protected View contentView;
+
+    public CommonPopupWindow(View contentView, int width, int height) {
+        super(contentView, width, height);
+        this.contentView = contentView;
 //        initWindow();
     }
 
-    public View getContentView() { return contentView; }
-    public PopupWindow getPopupWindow() { return mInstance; }
-
     protected abstract void initView();
-//    protected abstract void initListener();
+    protected abstract void initListener();
+    @SuppressLint("UseCompatLoadingForDrawables")
     protected void initWindow() {
-        mInstance = new PopupWindow(contentView, width, height);
-        mInstance.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
-        mInstance.setOutsideTouchable(true);
-        mInstance.setFocusable(true);
-        mInstance.setTouchable(true);
-    }
-
-    public void showAsDropDown(View anchor, int xoff, int yoff) {
-        mInstance.showAsDropDown(anchor, xoff, yoff);
-    }
-    public void showAtLocation(View parent, int gravity, int x, int y) {
-        mInstance.showAtLocation(parent, gravity, x, y);
-    }
-    public boolean isShowing() { return mInstance.isShowing(); }
-    public void dismiss() {
-        mInstance.dismiss();
+//        setBackgroundDrawable(contentView.getContext().getDrawable(R.drawable.function_button));
+        setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+//        setOutsideTouchable(true);
+//        setFocusable(true);
+//        setTouchable(true);
     }
 }

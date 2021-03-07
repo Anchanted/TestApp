@@ -14,5 +14,5 @@ public interface Service {
     Observable<Result<String>> getFloorInfo(@Path("floorId") Integer floorId, @Path("buildingId") Integer buildingId);
 
     @GET("place/")
-    Observable<Result<String>> getPlaceInfo(@Query("id") Integer id);
+    Observable<Result<String>> getPlaceInfo(@Query("id") Integer id, @Query("location") String location, @Query("indoor") String indoor);
 }

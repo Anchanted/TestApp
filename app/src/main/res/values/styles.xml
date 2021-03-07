@@ -22,7 +22,7 @@
         <item name="android:textAllCaps">false</item>
         <item name="android:textColor">@android:color/white</item>
         <item name="android:textSize">20sp</item>
-        <item name="android:text">@string/refresh_button_text</item>
+        <item name="android:text">@string/retry_button_text</item>
     </style>
     <style name="SplashTheme" parent="Theme.AppCompat.Light.NoActionBar">
         <item name="android:windowBackground">@drawable/splash_screen</item>

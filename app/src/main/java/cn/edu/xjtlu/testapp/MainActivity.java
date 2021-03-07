@@ -13,6 +13,7 @@ import android.content.res.Configuration;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Color;
+import android.graphics.Point;
 import android.graphics.PointF;
 import android.graphics.Typeface;
 import android.graphics.drawable.Drawable;
@@ -24,6 +25,7 @@ import android.provider.Settings;
 import android.text.Layout;
 import android.transition.Slide;
 import android.transition.TransitionInflater;
+import android.util.SparseIntArray;
 import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.LayoutInflater;
@@ -67,7 +69,6 @@ import butterknife.OnClick;
 import cn.edu.xjtlu.testapp.adapter.FloorListAdapter;
 import cn.edu.xjtlu.testapp.adapter.MenuListAdapter;
 import cn.edu.xjtlu.testapp.api.Api;
-import cn.edu.xjtlu.testapp.domain.Point;
 import cn.edu.xjtlu.testapp.domain.response.Result;
 import cn.edu.xjtlu.testapp.domain.Floor;
 import cn.edu.xjtlu.testapp.domain.Place;
@@ -146,7 +147,6 @@ public class MainActivity extends BaseCommonActivity {
     private LocationUtil locationUtil;
     private SensorUtil sensorUtil;
     private NetworkUtil networkUtil;
-    private FloorAlertDialog floorAlertDialog;
     private Disposable placeRequestDisposable;
 
     private Integer floorId;
@@ -281,12 +281,13 @@ public class MainActivity extends BaseCommonActivity {
                 tvLongitude.setText(String.valueOf(location.getLongitude()));
 //                LogUtil.d(TAG, location.getLatitude() + " " + location.getLongitude());
 //                ToastUtil.shortToastSuccess(location.getLatitude() + " " + location.getLongitude());
-                cv.setLocation(LocationUtil.geoToImage(new Point(location.getLatitude(), location.getLongitude())));
-//                cv.setLocation(new PointF(600, 500));
+//                cv.setLocation(LocationUtil.geoToImage(new Point(location.getLatitude(), location.getLongitude())));
+                cv.setLocation(new PointF(600, 500));
             }
         });
 
         sensorUtil = new SensorUtil(getMainActivity(), direction -> {
+//            direction = 135;
             tvOrientation.setText(String.valueOf(direction));
             if (floorId != null && buildingId != null) {
                 int floorDirection = currentFloor.getDirection() == null ? 0 : currentFloor.getDirection();
@@ -301,7 +302,7 @@ public class MainActivity extends BaseCommonActivity {
             @Override
             public void onPlaceSelected(PlainPlace place) {
                 if (!"building".equals(place.getPlaceType())) return;
-                Api.getInstance().getPlaceInfo(place.getId()).subscribe(new HttpObserver<Result<String>>() {
+                Api.getInstance().getPlaceInfo(place.getId(), null, null).subscribe(new HttpObserver<Result<String>>() {
                     @Override
                     public void onSubscribe(@io.reactivex.annotations.NonNull Disposable d) {
                         super.onSubscribe(d);
@@ -374,6 +375,27 @@ public class MainActivity extends BaseCommonActivity {
                         placeRequestDisposable = null;
                         LoadingUtil.hideLoading();
                         return false;
+                    }
+                });
+            }
+
+            @Override
+            public void onPlaceSelected(Point location) {
+                Api.getInstance().getPlaceInfo(null, String.format("%d,%d", location.x, location.y), floorId == null ? null : String.format("%d,%d", buildingId, floorId)).subscribe(new HttpObserver<Result<String>>() {
+                    @SuppressLint("InflateParams")
+                    @Override
+                    public void onSucceed(@io.reactivex.annotations.NonNull Result<String> result) {
+                        ObjectMapper mapper = new ObjectMapper();
+                        try {
+                            String string = AESUtil.decrypt(result.getData());
+                            JsonNode rootNode = mapper.readTree(string);
+                            Place place = mapper.readValue(rootNode.get("place").toString(), Place.class);
+                            LogUtil.d(TAG, "onSucceed: " + place);
+
+                            cv.setMarkerName((String) place.getShortName(), location);
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                        }
                     }
                 });
             }
@@ -503,6 +525,7 @@ public class MainActivity extends BaseCommonActivity {
     })
     void onPermissionGranted() {
         if (!locationUtil.canGetLocation()) {
+            locationButton.setChecked(false);
             new AlertDialog.Builder(this)
                     .setMessage("Location Service is not enabled. Do you want to go to the Setting menu?")
                     .setPositiveButton("Settings", new DialogInterface.OnClickListener() {
@@ -546,7 +569,7 @@ public class MainActivity extends BaseCommonActivity {
             Manifest.permission.ACCESS_FINE_LOCATION
     })
     void showDenied() {
-
+        locationButton.setChecked(false);
     }
 
     @OnNeverAskAgain({
@@ -554,7 +577,7 @@ public class MainActivity extends BaseCommonActivity {
             Manifest.permission.ACCESS_FINE_LOCATION
     })
     void showNeverAsk() {
-
+        locationButton.setChecked(false);
     }
 
     @Override
@@ -605,9 +628,36 @@ public class MainActivity extends BaseCommonActivity {
                             public void onResourceReady(@NonNull Bitmap resource, @Nullable Transition<? super Bitmap> transition) {
                                 LogUtil.d(TAG, "onResourceReady2");
                                 cv.setMapImage(resource);
-                                setPageColor(resource.getPixel(2, 2));
                                 canvasLoadingManager.dismiss();
                                 hideButton.setVisibility(View.VISIBLE);
+                                int width = resource.getWidth();
+                                int height = resource.getHeight();
+                                int length = width > height ? width : height;
+                                SparseIntArray colorArray = new SparseIntArray();
+                                for (int i = 0; i < length; i++) {
+                                    int color;
+                                    if (i < width) {
+                                        color = resource.getPixel(i, 0) & 0xffffff;
+                                        colorArray.put(color, colorArray.get(color) + 1);
+                                        color = resource.getPixel(i, height - 1) & 0xffffff;
+                                        colorArray.put(color, colorArray.get(color) + 1);
+                                    }
+                                    if (i < height) {
+                                        color = resource.getPixel(0, i) & 0xffffff;
+                                        colorArray.put(color, colorArray.get(color) + 1);
+                                        color = resource.getPixel(width - 1, i) & 0xffffff;
+                                        colorArray.put(color, colorArray.get(color) + 1);
+                                    }
+                                }
+                                int color = colorArray.keyAt(0);
+                                int maxValue = 0;
+                                for (int i = 0; i < colorArray.size(); i++) {
+                                    if (maxValue < colorArray.valueAt(i)) {
+                                        color = colorArray.keyAt(i);
+                                        maxValue = colorArray.valueAt(i);
+                                    }
+                                }
+                                setPageColor(color|0xff000000);
 //                                Palette.from(resource)
 //                                        .generate(new Palette.PaletteAsyncListener() {
 //                                            @Override

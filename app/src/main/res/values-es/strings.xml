@@ -2,7 +2,8 @@
     <string name="loading">Cargando...</string>
     <string name="choose_floor">Elige un piso en %s para entrar</string>
     <string name="button_cancel">Cancelar</string>
-    <string name="network_error_text">Fallido en pedir datos</string>
-    <string name="error_text">Fallido en cargar datos</string>
-    <string name="refresh_button_text">Actualizar</string>
+    <string name="network_error_text">Error al pedir datos</string>
+    <string name="error_text">Se ha producido un error</string>
+    <string name="retry_button_text">Reintentar</string>
+    <string name="marker_name">Ubicación Marcada</string>
 </resources>

@@ -17,6 +17,7 @@ import okhttp3.logging.HttpLoggingInterceptor;
 import retrofit2.Retrofit;
 import retrofit2.adapter.rxjava2.RxJava2CallAdapterFactory;
 import retrofit2.converter.gson.GsonConverterFactory;
+import retrofit2.http.Query;
 
 public class Api {
     private static final String TAG = Api.class.getSimpleName();
@@ -75,8 +76,8 @@ public class Api {
         }
     }
 
-    public Observable<Result<String>> getPlaceInfo(Integer id) {
-        return service.getPlaceInfo(id)
+    public Observable<Result<String>> getPlaceInfo(Integer id, String location, String indoor) {
+        return service.getPlaceInfo(id, location, indoor)
                 .subscribeOn(Schedulers.io())
                 .observeOn(AndroidSchedulers.mainThread());
     }

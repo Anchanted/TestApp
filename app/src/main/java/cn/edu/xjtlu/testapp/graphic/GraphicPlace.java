@@ -4,6 +4,7 @@ import android.animation.ValueAnimator;
 import android.graphics.Bitmap;
 import android.graphics.Paint;
 import android.graphics.Point;
+import android.graphics.Region;
 import android.text.StaticLayout;
 
 import androidx.annotation.NonNull;
@@ -14,15 +15,6 @@ import java.util.List;
 import cn.edu.xjtlu.testapp.domain.PlainPlace;
 
 public class GraphicPlace implements Comparable<GraphicPlace>{
-    public enum TextPosition {
-        BOTTOM(0, Paint.Align.CENTER), LEFT(1, Paint.Align.LEFT), RIGHT(2, Paint.Align.RIGHT), TOP(3, Paint.Align.CENTER);
-        public final int nativeInt;
-        public final Paint.Align align;
-        TextPosition(int i, Paint.Align alignment) {
-            nativeInt = i;
-            align = alignment;
-        }
-    }
     public static int degree;
 
     public static int imgWidth;
@@ -30,6 +22,8 @@ public class GraphicPlace implements Comparable<GraphicPlace>{
     public static int imgHeight;
 
     public final int id;
+
+    public final String placeType;
 
     public final String name;
 
@@ -43,42 +37,31 @@ public class GraphicPlace implements Comparable<GraphicPlace>{
 
     public final Point location;
 
-    public final List<List<Point>> areaCoords;
+    public final Point[][] areaCoords;
 
     public StaticLayout staticLayout;
 
     public TextPosition textPosition = TextPosition.BOTTOM;
 
-    @NonNull
-    public final ValueAnimator displayAnimator;
+    public ValueAnimator displayAnimator;
 
     public int displayAlpha;
 
     public boolean displayAnimationForward;
 
-    public final int textWidth;
+    public int iconColor;
 
-    public final int textHeight;
+    public final Region clipRegion = new Region();
 
-    public final float halfTextHeight;
+    public int textWidth;
 
-    private GraphicPlace() {
-        this.id = -1;
-        this.name = null;
-        this.iconType = null;
-        this.iconImg = null;
-        this.iconLevel = -1;
-        this.displayName = null;
-        this.location = null;
-        this.areaCoords = null;
-        this.displayAnimator = null;
-        this.textWidth = 0;
-        this.textHeight = 0;
-        this.halfTextHeight = 0;
-    }
+    public int textHeight;
 
-    public GraphicPlace(PlainPlace pp, Bitmap img, StaticLayout layout) {
+    public float halfTextHeight;
+
+    public GraphicPlace(PlainPlace pp, Bitmap img, int color, StaticLayout layout) {
         this.id = pp.getId();
+        this.placeType = pp.getPlaceType();
         this.name = pp.getShortName();
         this.iconType = pp.getIconType();
         this.iconImg = img;
@@ -88,6 +71,7 @@ public class GraphicPlace implements Comparable<GraphicPlace>{
         this.displayAnimator = ValueAnimator.ofInt(0, 255);
         this.displayAnimator.setDuration(200);
         this.displayAnimator.addUpdateListener(animation -> displayAlpha = ((Number) animation.getAnimatedValue()).intValue());
+        this.iconColor = color;
         this.textHeight = layout.getHeight();
         this.halfTextHeight = textHeight / 2f;
         int width = 0;
@@ -100,15 +84,28 @@ public class GraphicPlace implements Comparable<GraphicPlace>{
         if (pp.getAreaCoords() == null) {
             this.areaCoords = null;
         } else {
-            this.areaCoords = new ArrayList<>();
-            for (List<cn.edu.xjtlu.testapp.domain.Point> pointList : pp.getAreaCoords()) {
-                List<Point> gpointList = new ArrayList<>();
-                for (cn.edu.xjtlu.testapp.domain.Point point : pointList) {
-                    gpointList.add(convertPoint((int) point.getX(), (int) point.getY(), false));
+            this.areaCoords = new Point[pp.getAreaCoords().size()][];
+            for (int i = 0; i < pp.getAreaCoords().size(); i++) {
+                List<cn.edu.xjtlu.testapp.domain.Point> pointList = pp.getAreaCoords().get(i);
+                areaCoords[i] = new Point[pointList.size()];
+                for (int j = 0; j < pointList.size(); j++) {
+                    cn.edu.xjtlu.testapp.domain.Point point = pointList.get(j);
+                    areaCoords[i][j] = convertPoint((int) point.getX(), (int) point.getY(), false);
                 }
-                areaCoords.add(gpointList);
             }
         }
+    }
+
+    public GraphicPlace(String name, Point location) {
+        this.id = 0;
+        this.placeType = "mark";
+        this.name = name;
+        this.iconType = "pin";
+        this.iconImg = null;
+        this.iconLevel = 1;
+        this.displayName = false;
+        this.location = location;
+        this.areaCoords = null;
     }
 
     public static Point convertPoint(int oldX, int oldY, boolean reverse) {

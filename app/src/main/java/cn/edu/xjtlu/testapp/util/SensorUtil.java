@@ -7,9 +7,6 @@ import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
 import android.location.LocationListener;
 import android.os.Build;
-import android.util.Log;
-
-import java.util.Arrays;
 
 public class SensorUtil implements SensorEventListener{
     private SensorManager sensorManager;
@@ -75,7 +72,7 @@ public class SensorUtil implements SensorEventListener{
 
         // "orientationAngles" now has up-to-date information.
         float direction = (float) Math.toDegrees(orientationAngles[0]);
-        mListener.onSensorUpdate((int) Math.round(direction));
+        mListener.onSensorUpdate(Math.round(direction));
     }
 
     public interface MySensorEventListener {

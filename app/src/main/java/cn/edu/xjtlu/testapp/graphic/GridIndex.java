@@ -135,7 +135,8 @@ public class GridIndex {
                 for (int y = cy1; y <= cy2; ++y) {
                     cellIndex = xCellCount * y + x;
                     if (cellList[cellIndex] == null) continue;
-                    for (Integer index : cellList[cellIndex]) {
+                    for (int i = 0; i < cellList[cellIndex].size(); i++) {
+                        Integer index = cellList[cellIndex].get(i);
                         Pair<String, BShape> element = shapeList.get(index);
                         if (pair.first.equals(element.first)) continue;
                         if (collide(shape, element.second)) {

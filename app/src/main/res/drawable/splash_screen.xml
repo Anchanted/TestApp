@@ -4,7 +4,7 @@
     <item
         android:top="500dp"
         android:bottom="500dp"
-        android:drawable="@mipmap/ic_xaplogo"
+        android:drawable="@mipmap/ic_xap_logo"
         android:gravity="center" />
 <!--    <item>-->
 <!--        <bitmap-->

@@ -3,7 +3,8 @@
     <string name="loading">Loading...</string>
     <string name="choose_floor">Choose a floor in %s to go</string>
     <string name="button_cancel">Cancel</string>
-    <string name="network_error_text">Failed requesting data</string>
-    <string name="error_text">Failed loading data</string>
-    <string name="refresh_button_text">Refresh</string>
+    <string name="network_error_text">Failed to request data</string>
+    <string name="error_text">An error occurred</string>
+    <string name="retry_button_text">Retry</string>
+    <string name="marker_name">Marked Location</string>
 </resources>

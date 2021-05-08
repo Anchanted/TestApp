@@ -2,6 +2,7 @@ package cn.edu.xjtlu.testapp.graphic;
 
 import android.animation.ValueAnimator;
 import android.graphics.Bitmap;
+import android.graphics.Matrix;
 import android.graphics.Paint;
 import android.graphics.Point;
 import android.graphics.Region;
@@ -32,6 +33,8 @@ public class Marker {
     public final Point location;
 
     public final Point[][] areaCoords;
+
+    public final Matrix matrix = new Matrix();
 
     public StaticLayout staticLayout;
 

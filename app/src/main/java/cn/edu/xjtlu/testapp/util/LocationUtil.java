@@ -17,6 +17,7 @@ import android.util.Log;
 
 import androidx.annotation.NonNull;
 
+import java.lang.ref.WeakReference;
 import java.util.List;
 
 import cn.edu.xjtlu.testapp.domain.Point;
@@ -25,10 +26,10 @@ public class LocationUtil implements LocationListener {
     public static String TAG = LocationUtil.class.getSimpleName();
     private final LocationManager locationManager;
     private String locationProvider;
-    private final MyLocationListener mListener;
+    private final WeakReference<LocationListener> mListener;
 
-    public LocationUtil(Context context, MyLocationListener listener) {
-        mListener = listener;
+    public LocationUtil(Context context, LocationListener listener) {
+        mListener = new WeakReference<>(listener);
         locationManager = (LocationManager) context.getSystemService(Context.LOCATION_SERVICE);
 
         List<String> providers = locationManager.getProviders(true);
@@ -91,11 +92,10 @@ public class LocationUtil implements LocationListener {
     @Override
     public void onLocationChanged(@NonNull Location location) {
         LogUtil.d(TAG, "onLocationChanged " + location);
-        mListener.onLocationChanged(location);
-    }
-
-    public interface MyLocationListener {
-        void onLocationChanged(@NonNull Location location);
+        LocationListener listener = mListener.get();
+        if (listener != null) {
+            listener.onLocationChanged(location);
+        }
     }
 
     enum SamplePoint {

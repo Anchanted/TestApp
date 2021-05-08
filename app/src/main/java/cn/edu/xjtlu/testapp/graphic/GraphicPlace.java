@@ -2,6 +2,7 @@ package cn.edu.xjtlu.testapp.graphic;
 
 import android.animation.ValueAnimator;
 import android.graphics.Bitmap;
+import android.graphics.Matrix;
 import android.graphics.Paint;
 import android.graphics.Point;
 import android.graphics.Region;
@@ -38,6 +39,8 @@ public class GraphicPlace implements Comparable<GraphicPlace>{
     public final Point location;
 
     public final Point[][] areaCoords;
+
+    public final Matrix matrix = new Matrix();
 
     public StaticLayout staticLayout;
 
@@ -80,7 +83,7 @@ public class GraphicPlace implements Comparable<GraphicPlace>{
         }
         this.textWidth = width;
 
-        this.location = convertPoint((int) pp.getLocation().getX(), (int) pp.getLocation().getY(), false);
+        this.location = new Point((int) pp.getLocation().getX(), (int) pp.getLocation().getY());
         if (pp.getAreaCoords() == null) {
             this.areaCoords = null;
         } else {
@@ -90,7 +93,7 @@ public class GraphicPlace implements Comparable<GraphicPlace>{
                 areaCoords[i] = new Point[pointList.size()];
                 for (int j = 0; j < pointList.size(); j++) {
                     cn.edu.xjtlu.testapp.domain.Point point = pointList.get(j);
-                    areaCoords[i][j] = convertPoint((int) point.getX(), (int) point.getY(), false);
+                    areaCoords[i][j] = new Point((int) point.getX(), (int) point.getY());
                 }
             }
         }
@@ -106,21 +109,6 @@ public class GraphicPlace implements Comparable<GraphicPlace>{
         this.displayName = false;
         this.location = location;
         this.areaCoords = null;
-    }
-
-    public static Point convertPoint(int oldX, int oldY, boolean reverse) {
-        int x, y;
-        if (degree == 90) {
-            x = reverse ? oldY : imgHeight - oldY;
-            y = reverse ? imgHeight - oldX : oldX;
-        } else if (degree == -90) {
-            x = reverse ? imgWidth - oldY : oldY;
-            y = reverse ? oldX : imgWidth - oldX;
-        } else {
-            x = oldX;
-            y = oldY;
-        }
-        return new Point(x, y);
     }
 
     @Override

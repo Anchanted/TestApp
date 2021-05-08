@@ -81,7 +81,6 @@ public class CanvasView extends SurfaceView implements SurfaceHolder.Callback, R
     private final PointF doubleTapDownMotionEventPoint = new PointF(0, 0);
     private boolean scaling;
     private float lastDoubleTapMotionEventDistance;
-    private Bitmap resourceImg;
     private final TextPaint textPaint = new TextPaint();
     private final Paint drawPaint = new Paint();
     private GraphicPlace[] graphicPlaceArray;
@@ -97,8 +96,8 @@ public class CanvasView extends SurfaceView implements SurfaceHolder.Callback, R
 
     private float canvasWidth;
     private float canvasHeight;
-    private float imgWidth;
-    private float imgHeight;
+    private int imgWidth;
+    private int imgHeight;
     private final AnimationTransform transformAdaption = new AnimationTransform();
     private final AnimationTransform transform = new AnimationTransform(0, 0, 1, 1);
     private final PointF focusedPoint = new PointF(0, 0);
@@ -125,6 +124,10 @@ public class CanvasView extends SurfaceView implements SurfaceHolder.Callback, R
     @NonNull
     private ValueAnimator currentMarkerAnimator = new ValueAnimator();
     private AnimationTransform lastMapAnimationTransform;
+    @NonNull
+    private final Matrix mapMatrix = new Matrix();
+    @NonNull
+    private final Matrix locationMatrix = new Matrix();
     private boolean labelComplete;
     private boolean imageComplete;
     private boolean layoutComplete;
@@ -134,6 +137,7 @@ public class CanvasView extends SurfaceView implements SurfaceHolder.Callback, R
     private int clientWidth;
     private int clientHeight;
     private int rotate;
+    private float mapRotationCenter;
     private PlainPlace[] placeArray;
     private boolean locationActivated;
     private Integer deviceDirection;
@@ -259,8 +263,9 @@ public class CanvasView extends SurfaceView implements SurfaceHolder.Callback, R
                 }
                 if (this.doubleTapDown && !this.mapAnimator.isRunning()) {
                     float distance = event.getY() - this.doubleTapDownMotionEventPoint.y;
-                    float scale = (distance - this.lastDoubleTapMotionEventDistance) / 300;
+                    float scale = (this.lastDoubleTapMotionEventDistance - distance) / 300;
                     this.manipulateMap(0, 0, scale, scale);
+//                    LogUtil.d("TAG", String.format("%f %f %f %f", this.doubleTapDownMotionEventPoint.y, event.getY(), distance, dd));
                     this.lastDoubleTapMotionEventDistance = distance;
                     this.refreshTextPosition();
                     this.refreshIconDisplay();
@@ -345,7 +350,7 @@ public class CanvasView extends SurfaceView implements SurfaceHolder.Callback, R
 
     @Override
     public boolean onDoubleTapEvent(MotionEvent e) {
-//        LogUtil.d(TAG, "onDoubleTapEvent");
+//        LogUtil.d(TAG, "onDoubleTapEvent" + e.getAction());
         switch (e.getActionMasked()) {
             case MotionEvent.ACTION_DOWN:
 //                LogUtil.d(TAG, "onDoubleTapEvent ACTION_DOWN");
@@ -360,7 +365,7 @@ public class CanvasView extends SurfaceView implements SurfaceHolder.Callback, R
                 this.focusedPoint.y = focusedPoint.y;
                 break;
             case MotionEvent.ACTION_MOVE:
-//                LogUtil.d(TAG, "onDoubleTapEvent ACTION_MOVE");
+//                LogUtil.d(TAG, "onDoubleTapEvent ACTION_MOVE ");
                 if (!(!this.doubleTapMove && this.doubleTapDownMotionEventPoint.x == e.getX() && this.doubleTapDownMotionEventPoint.y == e.getY())) {
                     this.doubleTapMove = true;
                 }
@@ -381,8 +386,9 @@ public class CanvasView extends SurfaceView implements SurfaceHolder.Callback, R
     @Override
     public boolean onScale(ScaleGestureDetector detector) {
 //        LogUtil.d(TAG, "onScale");
-        if (!this.scaling) this.scaling = true;
+        if (this.doubleTapDown) return true;
         if (this.mapAnimator.isRunning()) return true;
+        if (!this.scaling) this.scaling = true;
         float zoom = detector.getScaleFactor() - 1f;
         PointF focusPoint = this.getTouchPoint(detector.getFocusX(), detector.getFocusY());
         this.focusedPoint.x = focusPoint.x;
@@ -557,16 +563,34 @@ public class CanvasView extends SurfaceView implements SurfaceHolder.Callback, R
     }
 
     private void drawMapInfo(Canvas canvas) {
+        final PointF sharedPoint = new PointF();
+
         canvas.save();
 
         canvas.drawColor(this.backgroundColor);
 
         if (this.imageMap.get("map") != null) {
-            this.drawImage(canvas, this.imageMap.get("map"), 0, 0, 0, 0, false, null);
+            this.mapMatrix.reset();
+
+            float scaleX = this.transform.scaleX * this.transformAdaption.scaleX;
+            float scaleY = this.transform.scaleY * this.transformAdaption.scaleY;
+            if (this.rotate != 0) {
+                this.mapMatrix.postRotate(this.rotate, this.mapRotationCenter, this.mapRotationCenter);
+                this.mapMatrix.postScale(scaleY, scaleX);
+            } else {
+                this.mapMatrix.postScale(scaleX, scaleY);
+            }
+
+            float posX = this.transform.translateX + this.transformAdaption.translateX;
+            float posY = this.transform.translateY + this.transformAdaption.translateY;
+            this.mapMatrix.postTranslate(posX, posY);
+            canvas.drawBitmap(this.imageMap.get("map"), this.mapMatrix, this.drawPaint);
+
+//            this.drawImage(canvas, this.imageMap.get("map"), this.mapMatrix, 0, 0, 0, 0, false, null);
         }
 
         if (this.currentMarker != null) {
-            this.drawPolygon(canvas, this.currentMarker.areaCoords);
+            this.drawPolygon(canvas, sharedPoint, this.currentMarker.areaCoords);
         }
 
         if (this.graphicPlaceArray != null && this.graphicPlaceArray.length > 0) {
@@ -581,23 +605,23 @@ public class CanvasView extends SurfaceView implements SurfaceHolder.Callback, R
                 if (place.displayAlpha == 0) continue;
                 this.drawPaint.setAlpha(place.displayAlpha);
 
-                PointF canvasPoint = this.getImageToCanvasPoint(place.location.x, place.location.y);
-                this.drawImage(canvas, place.iconImg, canvasPoint.x, canvasPoint.y, this.halfIconSize, this.halfIconSize, true, null);
+                this.getImageToCanvasPoint(sharedPoint, place.location.x, place.location.y);
+                this.drawImage(canvas, place.iconImg, place.matrix, sharedPoint.x, sharedPoint.y, this.halfIconSize, this.halfIconSize, true, null);
 
                 if (place.displayName && place.textPosition != null) {
                     canvas.save();
                     switch (place.textPosition) {
                         case BOTTOM:
-                            canvas.translate(canvasPoint.x, canvasPoint.y + this.halfIconSize);
+                            canvas.translate(sharedPoint.x, sharedPoint.y + this.halfIconSize);
                             break;
                         case LEFT:
-                            canvas.translate(canvasPoint.x + this.halfIconSize, canvasPoint.y - place.halfTextHeight);
+                            canvas.translate(sharedPoint.x + this.halfIconSize, sharedPoint.y - place.halfTextHeight);
                             break;
                         case RIGHT:
-                            canvas.translate(canvasPoint.x - this.halfIconSize, canvasPoint.y - place.halfTextHeight);
+                            canvas.translate(sharedPoint.x - this.halfIconSize, sharedPoint.y - place.halfTextHeight);
                             break;
                         case TOP:
-                            canvas.translate(canvasPoint.x, canvasPoint.y - this.halfIconSize - place.textHeight);
+                            canvas.translate(sharedPoint.x, sharedPoint.y - this.halfIconSize - place.textHeight);
                             break;
                     }
                     this.textPaint.setTextAlign(place.textPosition.align);
@@ -616,15 +640,16 @@ public class CanvasView extends SurfaceView implements SurfaceHolder.Callback, R
         }
 
         if (this.lastMarkerAnimator.isRunning()) {
-            PointF canvasPoint = this.getImageToCanvasPoint(this.lastMarker.location.x, this.lastMarker.location.y);
+            this.getImageToCanvasPoint(sharedPoint, this.lastMarker.location.x, this.lastMarker.location.y);
             this.drawPaint.setAlpha(this.lastMarker.displayAlpha);
-            this.drawImage(canvas, this.lastMarker.iconImg, canvasPoint.x, canvasPoint.y, this.halfMarkerSize * this.lastMarker.scaleFactor, this.markerSize * this.lastMarker.scaleFactor, true, this.lastMarker.scaleFactor);
+            this.drawImage(canvas, this.lastMarker.iconImg, this.lastMarker.matrix, sharedPoint.x, sharedPoint.y, this.halfMarkerSize * this.lastMarker.scaleFactor, this.markerSize * this.lastMarker.scaleFactor, true, this.lastMarker.scaleFactor);
             this.drawPaint.setAlpha(255);
         }
         if (this.currentMarker != null) {
-            PointF canvasPoint = this.getImageToCanvasPoint(this.currentMarker.location.x, this.currentMarker.location.y);
-            this.drawImage(canvas, this.currentMarker.iconImg, canvasPoint.x, canvasPoint.y, this.halfMarkerSize * this.currentMarker.scaleFactor, this.markerSize * this.currentMarker.scaleFactor, true, this.currentMarker.scaleFactor);
-            canvas.translate(canvasPoint.x, canvasPoint.y);
+            this.getImageToCanvasPoint(sharedPoint, this.currentMarker.location.x, this.currentMarker.location.y);
+            this.drawImage(canvas, this.currentMarker.iconImg, this.currentMarker.matrix, sharedPoint.x, sharedPoint.y, this.halfMarkerSize * this.currentMarker.scaleFactor, this.markerSize * this.currentMarker.scaleFactor, true, this.currentMarker.scaleFactor);
+            canvas.save();
+            canvas.translate(sharedPoint.x, sharedPoint.y);
             this.textPaint.setTextAlign(Paint.Align.CENTER);
             this.textPaint.setColor(Color.WHITE);
             this.textPaint.setStyle(Paint.Style.STROKE);
@@ -632,14 +657,21 @@ public class CanvasView extends SurfaceView implements SurfaceHolder.Callback, R
             this.textPaint.setColor(Color.BLACK);
             this.textPaint.setStyle(Paint.Style.FILL);
             this.currentMarker.staticLayout.draw(canvas);
+            canvas.restore();
         }
 
         if (this.locationActivated && this.location != null) {
-            PointF canvasPoint = this.getImageToCanvasPoint(this.location.x, this.location.y);
+            this.getImageToCanvasPoint(sharedPoint, this.location.x, this.location.y);
             if (this.deviceDirection != null) {
-                this.drawImage(canvas, this.imageMap.get("locationProbe"), canvasPoint.x, canvasPoint.y, this.halfLocationIconSize, this.halfLocationIconSize, true, null, this.deviceDirection);
+//                this.locationMatrix.reset();
+//                this.locationMatrix.postRotate(30, this.imageMap.get("locationProbe").getWidth() / 2f, this.imageMap.get("locationProbe").getHeight() / 2f);
+//                float dx = sharedPoint.x - this.halfLocationIconSize;
+//                float dy = sharedPoint.y - this.halfLocationIconSize;
+//                this.locationMatrix.postTranslate(dx, dy);
+//                canvas.drawBitmap(this.imageMap.get("locationProbe"), this.locationMatrix, this.drawPaint);
+                this.drawImage(canvas, this.imageMap.get("locationProbe"), this.locationMatrix, sharedPoint.x, sharedPoint.y, this.halfLocationIconSize, this.halfLocationIconSize, true, null, this.deviceDirection);
             }
-            this.drawImage(canvas, this.imageMap.get("locationMarker"), canvasPoint.x, canvasPoint.y, this.halfLocationIconSize, this.halfLocationIconSize, true, null);
+            this.drawImage(canvas, this.imageMap.get("locationMarker"), this.locationMatrix, sharedPoint.x, sharedPoint.y, this.halfLocationIconSize, this.halfLocationIconSize, true, null);
         }
 
         if (this.displayVirtualButton) {
@@ -662,8 +694,8 @@ public class CanvasView extends SurfaceView implements SurfaceHolder.Callback, R
      * @param fixSize
      * @param scaleFactor
      */
-    private void drawImage(Canvas canvas, Bitmap image, float x, float y, float imgOffsetX, float imgOffsetY, boolean fixSize, Float scaleFactor) {
-        drawImage(canvas, image, x, y, imgOffsetX, imgOffsetY, fixSize, scaleFactor, null, null, null);
+    private void drawImage(Canvas canvas, Bitmap image, Matrix matrix, float x, float y, float imgOffsetX, float imgOffsetY, boolean fixSize, Float scaleFactor) {
+        drawImage(canvas, image, matrix, x, y, imgOffsetX, imgOffsetY, fixSize, scaleFactor, null, null, null);
     }
 
     /**
@@ -678,8 +710,8 @@ public class CanvasView extends SurfaceView implements SurfaceHolder.Callback, R
      * @param scaleFactor
      * @param degree
      */
-    private void drawImage(Canvas canvas, Bitmap image, float x, float y, float imgOffsetX, float imgOffsetY, boolean fixSize, Float scaleFactor, float degree) {
-        drawImage(canvas, image, x, y, imgOffsetX, imgOffsetY, fixSize, degree, scaleFactor, null, null);
+    private void drawImage(Canvas canvas, Bitmap image, Matrix matrix, float x, float y, float imgOffsetX, float imgOffsetY, boolean fixSize, Float scaleFactor, float degree) {
+        drawImage(canvas, image, matrix, x, y, imgOffsetX, imgOffsetY, fixSize, scaleFactor,  degree, null, null);
     }
 
     /**
@@ -696,12 +728,15 @@ public class CanvasView extends SurfaceView implements SurfaceHolder.Callback, R
      * @param translateX
      * @param translateY
      */
-    private void drawImage(Canvas canvas, Bitmap image, float x, float y, float imgOffsetX, float imgOffsetY, boolean fixSize, Float scaleFactor, Float degree, Float translateX, Float translateY) {
-        if (image == null) return;
+    private void drawImage(Canvas canvas, Bitmap image, Matrix matrix, float x, float y, float imgOffsetX, float imgOffsetY, boolean fixSize, Float scaleFactor, Float degree, Float translateX, Float translateY) {
+        if (canvas == null || image == null || matrix == null) return;
 
-        Matrix matrix = new Matrix();
+        float scaleX = fixSize ? 1 : this.transform.scaleX * this.transformAdaption.scaleX;
+        float scaleY = fixSize ? 1 : this.transform.scaleY * this.transformAdaption.scaleY;
+
+        matrix.reset();
         if (degree != null) {
-            matrix.postRotate(degree, image.getWidth() / 2, image.getHeight() / 2);
+            matrix.postRotate(degree + this.rotate, image.getWidth() / 2f, image.getHeight() / 2f);
             if (translateX != null && translateY != null) {
                 matrix.postTranslate(translateX, translateY);
             }
@@ -710,23 +745,18 @@ public class CanvasView extends SurfaceView implements SurfaceHolder.Callback, R
             matrix.postScale(scaleFactor, scaleFactor);
         }
 
-        float scaleX = this.transform.scaleX * this.transformAdaption.scaleX;
-        float scaleY = this.transform.scaleY * this.transformAdaption.scaleY;
         float dx, dy;
         if (!fixSize) {
             matrix.postScale(scaleX, scaleY);
-            PointF canvasPoint = this.getImageToCanvasPoint(x - imgOffsetX, y - imgOffsetY);
-            dx = canvasPoint.x;
-            dy = canvasPoint.y;
-        } else {
-            dx = x - imgOffsetX;
-            dy = y - imgOffsetY;
         }
+        dx = x - imgOffsetX * scaleX;
+        dy = y - imgOffsetY * scaleX;
+
         matrix.postTranslate(dx, dy);
         canvas.drawBitmap(image, matrix, this.drawPaint);
     }
 
-    private void drawPolygon(Canvas canvas, Point[][] areaCoords) {
+    private void drawPolygon(Canvas canvas, PointF sharedPoint, Point[][] areaCoords) {
         if (areaCoords == null) return;
         Path path = new Path();
         path.setFillType(Path.FillType.EVEN_ODD);
@@ -734,11 +764,11 @@ public class CanvasView extends SurfaceView implements SurfaceHolder.Callback, R
             Point[] pointList = areaCoords[i];
             Path subPath = new Path();
             for (int j = 0; j < pointList.length; j++) {
-                PointF canvasPoint = this.getImageToCanvasPoint(pointList[j].x, pointList[j].y);
+                this.getImageToCanvasPoint(sharedPoint, pointList[j].x, pointList[j].y);
                 if (j == 0) {
-                    subPath.moveTo(canvasPoint.x, canvasPoint.y);
+                    subPath.moveTo(sharedPoint.x, sharedPoint.y);
                 } else {
-                    subPath.lineTo(canvasPoint.x, canvasPoint.y);
+                    subPath.lineTo(sharedPoint.x, sharedPoint.y);
                 }
             }
 //                    subPath.moveTo(0, 0);
@@ -756,15 +786,32 @@ public class CanvasView extends SurfaceView implements SurfaceHolder.Callback, R
         canvas.drawPath(path, this.drawPaint);
     }
 
-    private PointF getImageToCanvasPoint(float x, float y) {
-        return new PointF(x * this.transform.scaleX * this.transformAdaption.scaleX + this.transform.translateX + this.transformAdaption.translateX, y * this.transform.scaleY * this.transformAdaption.scaleY + this.transform.translateY + this.transformAdaption.translateY);
+    public void transformPoint(PointF point, float oldX, float oldY, boolean reverse) {
+        if (this.rotate == 90) {
+            point.x = reverse ? oldY : this.imgWidth - oldY;
+            point.y = reverse ? this.imgWidth - oldX : oldX;
+        } else if (this.rotate == -90) {
+            point.x = reverse ? this.imgHeight - oldY : oldY;
+            point.y = reverse ? oldX : this.imgHeight - oldX;
+        } else {
+            point.x = oldX;
+            point.y = oldY;
+        }
     }
 
-    private Point getCanvasToImagePoint(float x, float y) {
-        return new Point(Math.round((x - this.transformAdaption.translateX - this.transform.translateX) / (this.transform.scaleX * this.transformAdaption.scaleX)), Math.round((y - this.transformAdaption.translateY - this.transform.translateY) / (this.transform.scaleY * this.transformAdaption.scaleY)));
+    private void getImageToCanvasPoint(PointF point, float x, float y) {
+        this.transformPoint(point, x, y, false);
+        point.x = point.x * this.transform.scaleX * this.transformAdaption.scaleX + this.transform.translateX + this.transformAdaption.translateX;
+        point.y = point.y * this.transform.scaleY * this.transformAdaption.scaleY + this.transform.translateY + this.transformAdaption.translateY;
     }
 
-    private PointF getTouchPoint (float x, float y) {
+    private void getCanvasToImagePoint(PointF point, float x, float y) {
+        float newX = Math.round((x - this.transformAdaption.translateX - this.transform.translateX) / (this.transform.scaleX * this.transformAdaption.scaleX));
+        float newY = Math.round((y - this.transformAdaption.translateY - this.transform.translateY) / (this.transform.scaleY * this.transformAdaption.scaleY));
+        this.transformPoint(point, newX, newY, true);
+    }
+
+    private PointF getTouchPoint(float x, float y) {
         float px = x - this.boundingClientRect.left;
         float py = y - this.boundingClientRect.top;
         return new PointF(px, py);
@@ -834,6 +881,8 @@ public class CanvasView extends SurfaceView implements SurfaceHolder.Callback, R
     }
 
     private Object isPointInItem(float pointX, float pointY) {
+        final PointF sharedPoint = new PointF();
+
         // tap on places
         PointF touchPoint = this.getTouchPoint(pointX, pointY);
         if (this.displayVirtualButton) {
@@ -852,11 +901,11 @@ public class CanvasView extends SurfaceView implements SurfaceHolder.Callback, R
             path.reset();
             region.setEmpty();
             if (this.currentMarker.areaCoords != null) {
-                path.addPath(this.addAreaToPath(this.currentMarker.areaCoords));
+                path.addPath(this.addAreaToPath(sharedPoint, this.currentMarker.areaCoords));
             }
-            PointF point = this.getImageToCanvasPoint(this.currentMarker.location.x , this.currentMarker.location.y);
-            path.addRect(point.x - this.halfMarkerSize, point.y - this.markerSize, point.x + this.halfMarkerSize, point.y, Path.Direction.CW);
-            path.addRect(this.addTextAreaToPath(point, 0, 0, this.currentMarker.textWidth, this.currentMarker.textHeight, TextPosition.BOTTOM), Path.Direction.CW);
+            this.getImageToCanvasPoint(sharedPoint, this.currentMarker.location.x , this.currentMarker.location.y);
+            path.addRect(sharedPoint.x - this.halfMarkerSize, sharedPoint.y - this.markerSize, sharedPoint.x + this.halfMarkerSize, sharedPoint.y, Path.Direction.CW);
+            path.addRect(this.addTextAreaToPath(sharedPoint, 0, 0, this.currentMarker.textWidth, this.currentMarker.textHeight, TextPosition.BOTTOM), Path.Direction.CW);
             path.computeBounds(boundRect, true);
             this.currentMarker.clipRegion.set((int) boundRect.left, (int) boundRect.top, (int) boundRect.right, (int) boundRect.bottom);
             region.setPath(path, this.currentMarker.clipRegion);
@@ -875,13 +924,13 @@ public class CanvasView extends SurfaceView implements SurfaceHolder.Callback, R
             path.reset();
             region.setEmpty();
             if (p.areaCoords != null) {
-                path.addPath(this.addAreaToPath(p.areaCoords));
+                path.addPath(this.addAreaToPath(sharedPoint, p.areaCoords));
             }
             if (p.iconLevel > 0) {
-                PointF point = this.getImageToCanvasPoint(p.location.x , p.location.y);
-                path.addRect(point.x - this.halfIconSize, point.y - this.halfIconSize, point.x + this.halfIconSize, point.y + this.halfIconSize, Path.Direction.CW);
+                this.getImageToCanvasPoint(sharedPoint, p.location.x , p.location.y);
+                path.addRect(sharedPoint.x - this.halfIconSize, sharedPoint.y - this.halfIconSize, sharedPoint.x + this.halfIconSize, sharedPoint.y + this.halfIconSize, Path.Direction.CW);
                 if (p.textPosition != null) {
-                    path.addRect(this.addTextAreaToPath(point, this.halfIconSize, this.halfIconSize, p.textWidth, p.textHeight, p.textPosition), Path.Direction.CW);
+                    path.addRect(this.addTextAreaToPath(sharedPoint, this.halfIconSize, this.halfIconSize, p.textWidth, p.textHeight, p.textPosition), Path.Direction.CW);
                 }
             }
             path.computeBounds(boundRect, true);
@@ -897,14 +946,14 @@ public class CanvasView extends SurfaceView implements SurfaceHolder.Callback, R
         return null;
     }
 
-    private Path addAreaToPath(Point[][] areaCoords) {
+    private Path addAreaToPath(PointF sharedPoint, Point[][] areaCoords) {
         Path area = new Path();
         Point[] pointList = areaCoords[0];
         if (pointList != null) {
             for (int j = 0; j < pointList.length; j++) {
-                PointF point = this.getImageToCanvasPoint(pointList[j].x , pointList[j].y);
-                if (j == 0) area.moveTo(point.x, point.y);
-                else area.lineTo(point.x, point.y);
+                this.getImageToCanvasPoint(sharedPoint, pointList[j].x , pointList[j].y);
+                if (j == 0) area.moveTo(sharedPoint.x, sharedPoint.y);
+                else area.lineTo(sharedPoint.x, sharedPoint.y);
             }
         }
         return area;
@@ -934,9 +983,10 @@ public class CanvasView extends SurfaceView implements SurfaceHolder.Callback, R
         if (element instanceof Integer && element.equals(1)) {
 
         } else if (longPress) {
-            Point imgPoint = this.getCanvasToImagePoint(pointX, pointY);
-            if ((imgPoint.x >= 0 && imgPoint.x <= this.imgWidth) && (imgPoint.y >= 0 && imgPoint.y <= this.imgHeight)) {
-                this.setSelectedPlace(new GraphicPlace(getResources().getString(R.string.marker_name), imgPoint));
+            PointF imgPoint = new PointF();
+            this.getCanvasToImagePoint(imgPoint, pointX, pointY);
+            if ((imgPoint.x >= 0 && imgPoint.x <= (this.rotate == 0 ? this.imgWidth : this.imgHeight)) && (imgPoint.y >= 0 && imgPoint.y <= (this.rotate == 0 ? this.imgHeight : this.imgWidth))) {
+                this.setSelectedPlace(new GraphicPlace(getResources().getString(R.string.marker_name), new Point((int) imgPoint.x, (int) imgPoint.y)));
             }
         } else if (element != null) {
             if (element instanceof GraphicPlace) {
@@ -1022,23 +1072,23 @@ public class CanvasView extends SurfaceView implements SurfaceHolder.Callback, R
     }
 
     private void resetLayout() throws Exception {
-        LogUtil.d(TAG, "setMapImage: " + this.resourceImg.getWidth() + " " + this.resourceImg.getHeight() + " " + this.resourceImg.getAllocationByteCount());
-        this.rotate = getMapRotation(this.resourceImg.getWidth(), this.resourceImg.getHeight());
+        final int imgWidth = this.imageMap.get("map").getWidth();
+        final int imgHeight = this.imageMap.get("map").getHeight();
+
+        LogUtil.d(TAG, "IMGSIZE: " + imgWidth + " " + imgHeight + " " + this.imageMap.get("map").getAllocationByteCount());
+        this.rotate = getMapRotation(imgWidth, imgHeight);
         this.mListener.onRotateUpdate(this.rotate);
-        GraphicPlace.imgWidth = this.resourceImg.getWidth();
-        GraphicPlace.imgHeight = this.resourceImg.getHeight();
-        GraphicPlace.degree = this.rotate;
 
-        Matrix matrix = new Matrix();
+        this.imgWidth = this.rotate == 0 ? imgWidth : imgHeight;
+        this.imgHeight = this.rotate == 0 ? imgHeight : imgWidth;
+
         if (this.rotate != 0) {
-            matrix.setRotate(this.rotate, this.resourceImg.getWidth() / 2f, this.resourceImg.getHeight() / 2f);
+            this.mapRotationCenter = (((imgWidth <= imgHeight) == (this.rotate == 90)) ? Math.max(imgWidth, imgHeight) : Math.min(imgWidth, imgHeight)) / 2f;
         }
-        Bitmap newImg = Bitmap.createBitmap(this.resourceImg, 0, 0, this.resourceImg.getWidth(), this.resourceImg.getHeight(), matrix, false);
-        LogUtil.d(TAG, "IMGSIZE: " + newImg.getWidth() + " " + newImg.getHeight() + " " + newImg.getAllocationByteCount());
 
-        this.imageMap.put("map", newImg);
-        this.imgWidth = newImg.getWidth();
-        this.imgHeight = newImg.getHeight();
+        GraphicPlace.imgWidth = this.imgWidth;
+        GraphicPlace.imgHeight = this.imgHeight;
+        GraphicPlace.degree = this.rotate;
 
         this.canvasWidth = this.clientWidth;
         this.canvasHeight = this.clientHeight;
@@ -1059,18 +1109,22 @@ public class CanvasView extends SurfaceView implements SurfaceHolder.Callback, R
     }
 
     private void refreshTextPosition() {
+        PointF sharedPoint = new PointF();
+
         TextPosition[] positionArr = {TextPosition.BOTTOM, TextPosition.LEFT, TextPosition.RIGHT, TextPosition.TOP};
         float finalScaleX = this.transform.scaleX * this.transformAdaption.scaleX;
         float finalScaleY = this.transform.scaleX * this.transformAdaption.scaleY;
         float currentScaleX = this.transform.scaleX;
         float currentScaleY = this.transform.scaleY;
-        GridIndex gi = new GridIndex(this.imgWidth * finalScaleX, this.imgHeight * finalScaleY, (int) (30 * Math.floor(this.transform.scaleX)));
+        GridIndex.init(this.imgWidth * finalScaleX, this.imgHeight * finalScaleY, (int) (30 * Math.floor(this.transform.scaleX)));
 
         for (int i = 0; i < this.graphicPlaceArray.length; i++) {
             GraphicPlace place = this.graphicPlaceArray[i];
             if (currentScaleX < place.iconLevel || currentScaleY < place.iconLevel) continue;
-            PointF canvasPoint = new PointF((float) place.location.x * finalScaleX, (float) place.location.y * finalScaleY);
-            gi.insert(new Pair<>(String.valueOf(place.id), new BCircle(canvasPoint.x, canvasPoint.y, this.halfIconSize)), false);
+            this.transformPoint(sharedPoint, place.location.x, place.location.y, false);
+            sharedPoint.x *= finalScaleX;
+            sharedPoint.y *= finalScaleY;
+            GridIndex.insert(new Pair<>(String.valueOf(place.id), new BCircle(sharedPoint.x, sharedPoint.y, this.halfIconSize)), false);
         }
 
         for (int i = 0; i < this.graphicPlaceArray.length; i++) {
@@ -1078,7 +1132,9 @@ public class CanvasView extends SurfaceView implements SurfaceHolder.Callback, R
 
             if (place.iconLevel <= 0 || currentScaleX < place.iconLevel || currentScaleY < place.iconLevel) continue;
 
-            PointF canvasPoint = new PointF((float) place.location.x * finalScaleX, (float) place.location.y * finalScaleY);
+            this.transformPoint(sharedPoint, place.location.x, place.location.y, false);
+            sharedPoint.x *= finalScaleX;
+            sharedPoint.y *= finalScaleY;
             float width = place.textWidth;
             float height = place.textHeight;
             float halfWidth = width / 2;
@@ -1091,19 +1147,19 @@ public class CanvasView extends SurfaceView implements SurfaceHolder.Callback, R
                 BBox box = null;
                 switch (position) {
                     case BOTTOM:
-                        box = new BBox(canvasPoint.x - halfWidth, canvasPoint.y + this.halfIconSize, width, height);
+                        box = new BBox(sharedPoint.x - halfWidth, sharedPoint.y + this.halfIconSize, width, height);
                         break;
                     case LEFT:
-                        box = new BBox(canvasPoint.x + this.halfIconSize, canvasPoint.y - halfHeight, width, height);
+                        box = new BBox(sharedPoint.x + this.halfIconSize, sharedPoint.y - halfHeight, width, height);
                         break;
                     case RIGHT:
-                        box = new BBox(canvasPoint.x - this.halfIconSize - width, canvasPoint.y - halfHeight, width, height);
+                        box = new BBox(sharedPoint.x - this.halfIconSize - width, sharedPoint.y - halfHeight, width, height);
                         break;
                     case TOP:
-                        box = new BBox(canvasPoint.x - halfWidth, canvasPoint.y - this.halfIconSize - height, width, height);
+                        box = new BBox(sharedPoint.x - halfWidth, sharedPoint.y - this.halfIconSize - height, width, height);
                         break;
                 }
-                result = gi.insert(new Pair<>(String.valueOf(place.id), box), true);
+                result = GridIndex.insert(new Pair<>(String.valueOf(place.id), box), true);
 
                 if (result > -1) {
                     place.textPosition = position;
@@ -1150,7 +1206,7 @@ public class CanvasView extends SurfaceView implements SurfaceHolder.Callback, R
     }
 
     public void setMapImage(Bitmap resource) {
-        this.resourceImg = resource;
+        this.imageMap.put("map", resource);
 
         if (this.layoutComplete) {
             try {
@@ -1224,9 +1280,15 @@ public class CanvasView extends SurfaceView implements SurfaceHolder.Callback, R
         }
     }
 
-    public void setLocation(PointF point) {
-        if ((point.x >= 0 && point.x <= this.imgWidth) && (point.y >= 0 && point.y <= this.imgHeight)) {
-            this.location = point;
+    public void setLocation(float x, float y) {
+        LogUtil.d(TAG, String.format("location: %f, %f", x, y));
+        if ((x >= 0 && x <= this.imgWidth) && (y >= 0 && y <= this.imgHeight)) {
+            if (this.location == null) {
+                this.location = new PointF(x, y);
+            } else {
+                this.location.x = x;
+                this.location.y = y;
+            }
         }
     }
 
@@ -1236,6 +1298,12 @@ public class CanvasView extends SurfaceView implements SurfaceHolder.Callback, R
 
     public void setLocationActivated(boolean flag) {
         this.locationActivated = flag;
+        if (flag) {
+            this.location = new PointF(500, 500);
+        }
+        if (!flag) {
+            this.location = null;
+        }
     }
 
     public void setMarkerName(String name, Point location) {

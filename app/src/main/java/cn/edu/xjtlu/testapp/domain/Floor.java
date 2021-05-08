@@ -19,6 +19,10 @@ public class Floor implements Serializable {
 
     private Integer direction;
 
+    private Float ratio;
+
+    private Object refCoords;
+
     private String imgUrl;
 
     private Boolean hasGate;

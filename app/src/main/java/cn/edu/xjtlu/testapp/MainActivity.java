@@ -274,23 +274,19 @@ public class MainActivity extends BaseCommonActivity {
             menuButton.performClick();
         });
 
-        locationUtil = new LocationUtil(getMainActivity(), new LocationUtil.MyLocationListener() {
-            @Override
-            public void onLocationChanged(@NonNull Location location) {
-                tvLatitude.setText(String.valueOf(location.getLatitude()));
-                tvLongitude.setText(String.valueOf(location.getLongitude()));
+        locationUtil = new LocationUtil(getApplicationContext(), location -> {
+            tvLatitude.setText(String.valueOf(location.getLatitude()));
+            tvLongitude.setText(String.valueOf(location.getLongitude()));
 //                LogUtil.d(TAG, location.getLatitude() + " " + location.getLongitude());
 //                ToastUtil.shortToastSuccess(location.getLatitude() + " " + location.getLongitude());
 //                cv.setLocation(LocationUtil.geoToImage(new Point(location.getLatitude(), location.getLongitude())));
-                cv.setLocation(new PointF(600, 500));
-            }
+            cv.setLocation(600, 500);
         });
 
-        sensorUtil = new SensorUtil(getMainActivity(), direction -> {
+        sensorUtil = new SensorUtil(getApplicationContext(), direction -> {
 //            direction = 135;
             tvOrientation.setText(String.valueOf(direction));
             if (floorId != null && buildingId != null) {
-                int floorDirection = currentFloor.getDirection() == null ? 0 : currentFloor.getDirection();
                 compassButton.setRotation(direction + floorDirection);
             } else {
                 cv.setDirection(direction);

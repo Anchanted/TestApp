@@ -5,6 +5,7 @@ import android.graphics.Bitmap;
 import android.graphics.Matrix;
 import android.graphics.Paint;
 import android.graphics.Point;
+import android.graphics.PointF;
 import android.graphics.Region;
 import android.text.StaticLayout;
 
@@ -30,9 +31,9 @@ public class Marker {
 
     public final Boolean displayName;
 
-    public final Point location;
+    public final PointF location;
 
-    public final Point[][] areaCoords;
+    public final PointF[][][] areaCoords;
 
     public final Matrix matrix = new Matrix();
 

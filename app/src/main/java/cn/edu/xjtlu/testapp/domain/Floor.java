@@ -1,9 +1,15 @@
 package cn.edu.xjtlu.testapp.domain;
 
+import android.graphics.Matrix;
+import android.graphics.Point;
+import android.graphics.PointF;
+
 import com.fasterxml.jackson.annotation.JsonInclude;
 
 import java.io.Serializable;
 import java.util.List;
+
+import cn.edu.xjtlu.testapp.graphic.GraphicPlace;
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class Floor implements Serializable {
@@ -15,19 +21,31 @@ public class Floor implements Serializable {
 
     private Integer levelOffset;
 
-    private List<Integer> buildingId;
+    private PlaceFloor[] buildingList;
 
     private Integer direction;
 
     private Float ratio;
 
-    private Object refCoords;
+    private Float[][][] refCoords;
 
     private String imgUrl;
 
     private Boolean hasGate;
 
     private Boolean hasOccupation;
+
+    public float degree = 0;
+
+    public float scale = 1;
+
+    public final PointF origin = new PointF(0, 0);
+
+    public PointF[] envelope;
+
+    public final Matrix matrix = new Matrix();
+
+    public List<GraphicPlace> placeList;
 
     public Integer getId() {
         return id;
@@ -61,12 +79,12 @@ public class Floor implements Serializable {
         this.levelOffset = levelOffset;
     }
 
-    public List<Integer> getBuildingId() {
-        return buildingId;
+    public PlaceFloor[] getBuildingList() {
+        return buildingList;
     }
 
-    public void setBuildingId(List<Integer> buildingId) {
-        this.buildingId = buildingId;
+    public void setBuildingList(PlaceFloor[] buildingList) {
+        this.buildingList = buildingList;
     }
 
     public Integer getDirection() {
@@ -75,6 +93,22 @@ public class Floor implements Serializable {
 
     public void setDirection(Integer direction) {
         this.direction = direction;
+    }
+
+    public Float getRatio() {
+        return ratio;
+    }
+
+    public void setRatio(Float ratio) {
+        this.ratio = ratio;
+    }
+
+    public Float[][][] getRefCoords() {
+        return refCoords;
+    }
+
+    public void setRefCoords(Float[][][] refCoords) {
+        this.refCoords = refCoords;
     }
 
     public String getImgUrl() {
@@ -108,8 +142,10 @@ public class Floor implements Serializable {
                 ", name=" + name +
                 ", levelIndex=" + levelIndex +
                 ", levelOffset=" + levelOffset +
-                ", buildingId=" + buildingId +
+                ", buildingList=" + buildingList +
                 ", direction=" + direction +
+                ", ratio=" + ratio +
+                ", refCoords=" + refCoords +
                 ", imgUrl=" + imgUrl +
                 ", hasGate=" + hasGate +
                 ", hasOccupation=" + hasOccupation +

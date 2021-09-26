@@ -5,6 +5,7 @@ import android.graphics.Bitmap;
 import android.graphics.Matrix;
 import android.graphics.Paint;
 import android.graphics.Point;
+import android.graphics.PointF;
 import android.graphics.Region;
 import android.text.StaticLayout;
 
@@ -36,9 +37,9 @@ public class GraphicPlace implements Comparable<GraphicPlace>{
 
     public final Boolean displayName;
 
-    public final Point location;
+    public final PointF location;
 
-    public final Point[][] areaCoords;
+    public final PointF[][][] areaCoords;
 
     public final Matrix matrix = new Matrix();
 
@@ -83,25 +84,29 @@ public class GraphicPlace implements Comparable<GraphicPlace>{
         }
         this.textWidth = width;
 
-        this.location = new Point((int) pp.getLocation().getX(), (int) pp.getLocation().getY());
+        this.location = new PointF((float) pp.getLocation().getX(), (float) pp.getLocation().getY());
         if (pp.getAreaCoords() == null) {
             this.areaCoords = null;
         } else {
-            this.areaCoords = new Point[pp.getAreaCoords().size()][];
+            this.areaCoords = new PointF[pp.getAreaCoords().size()][][];
             for (int i = 0; i < pp.getAreaCoords().size(); i++) {
-                List<cn.edu.xjtlu.testapp.domain.Point> pointList = pp.getAreaCoords().get(i);
-                areaCoords[i] = new Point[pointList.size()];
-                for (int j = 0; j < pointList.size(); j++) {
-                    cn.edu.xjtlu.testapp.domain.Point point = pointList.get(j);
-                    areaCoords[i][j] = new Point((int) point.getX(), (int) point.getY());
+                List<List<cn.edu.xjtlu.testapp.domain.Point>> polygon = pp.getAreaCoords().get(i);
+                this.areaCoords[i] = new PointF[polygon.size()][];
+                for (int j = 0; j < polygon.size(); j++) {
+                    List<cn.edu.xjtlu.testapp.domain.Point> pointList = polygon.get(j);
+                    this.areaCoords[i][j] = new PointF[pointList.size()];
+                    for (int k = 0; k < pointList.size(); k++) {
+                        cn.edu.xjtlu.testapp.domain.Point point = pointList.get(k);
+                        this.areaCoords[i][j][k] = new PointF((float) point.getX(), (float) point.getY());
+                    }
                 }
             }
         }
     }
 
-    public GraphicPlace(String name, Point location) {
+    public GraphicPlace(String name, PointF location) {
         this.id = 0;
-        this.placeType = "mark";
+        this.placeType = "marker";
         this.name = name;
         this.iconType = "pin";
         this.iconImg = null;

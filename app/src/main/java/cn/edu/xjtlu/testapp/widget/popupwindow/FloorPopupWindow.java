@@ -7,15 +7,20 @@ import android.widget.BaseAdapter;
 import android.widget.ListView;
 
 import androidx.annotation.LayoutRes;
+import androidx.annotation.NonNull;
+
+import org.jetbrains.annotations.NotNull;
 
 import cn.edu.xjtlu.testapp.R;
+import cn.edu.xjtlu.testapp.adapter.FloorListAdapter;
 
 public class FloorPopupWindow extends CommonPopupWindow{
-    private final BaseAdapter adapter;
+    @NonNull
+    private final FloorListAdapter adapter;
     private final AdapterView.OnItemClickListener listener;
     private final ListView listView;
 
-    public FloorPopupWindow(View contentView, int width, int height, BaseAdapter adapter, AdapterView.OnItemClickListener listener) {
+    public FloorPopupWindow(View contentView, int width, int height, @NotNull FloorListAdapter adapter, AdapterView.OnItemClickListener listener) {
         super(contentView, width, height);
         this.adapter = adapter;
         this.listener = listener;
@@ -34,5 +39,9 @@ public class FloorPopupWindow extends CommonPopupWindow{
     @Override
     protected void initListener() {
         listView.setOnItemClickListener(listener);
+    }
+
+    public FloorListAdapter getAdapter() {
+        return adapter;
     }
 }

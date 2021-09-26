@@ -10,9 +10,9 @@ public interface Service {
     @GET("floor/campus")
     Observable<Result<String>> getCampusInfo();
 
-    @GET("floor/{floorId}/{buildingId}")
-    Observable<Result<String>> getFloorInfo(@Path("floorId") Integer floorId, @Path("buildingId") Integer buildingId);
+    @GET("floor/")
+    Observable<Result<String>> getFloorInfo(@Query("buildingId") Integer buildingId, @Query("floorId") Integer floorId);
 
     @GET("place/")
-    Observable<Result<String>> getPlaceInfo(@Query("id") Integer id, @Query("location") String location, @Query("indoor") String indoor);
+    Observable<Result<String>> getPlaceInfo(@Query("id") Integer id, @Query("location") String location);
 }

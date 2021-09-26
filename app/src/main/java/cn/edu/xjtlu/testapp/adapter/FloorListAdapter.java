@@ -14,30 +14,34 @@ import java.util.List;
 
 import cn.edu.xjtlu.testapp.R;
 import cn.edu.xjtlu.testapp.domain.Floor;
+import cn.edu.xjtlu.testapp.domain.Place;
 
 public class FloorListAdapter extends BaseAdapter {
-    private List<Floor> mList;
-    private LayoutInflater inflater;
-    private int selectedPosition = 0;
+    @NonNull
+    private Floor[] mList;
+    private final LayoutInflater inflater;
+    private int selectedPosition = -1;
+    private Integer buildingId;
 
-    public FloorListAdapter(@NonNull Context context, @NonNull List<Floor> objects) {
-        this.mList = objects;
+    public FloorListAdapter(@NonNull Context context, @NonNull Place building) {
+        this.mList = building.floorList;
         this.inflater = LayoutInflater.from(context.getApplicationContext());
+        this.buildingId = building.getId();
     }
 
     @Override
     public int getCount() {
-        return mList == null ? 0 : mList.size();
+        return mList.length;
     }
 
     @Override
-    public Object getItem(int position) {
-        return mList == null ? null : mList.get(position);
+    public Floor getItem(int position) {
+        return (position >= 0 && position < mList.length) ? mList[position] : null;
     }
 
     @Override
     public long getItemId(int position) {
-        return position;
+        return (position >= 0 && position < mList.length) ? position : -1;
     }
 
     @NonNull
@@ -54,7 +58,7 @@ public class FloorListAdapter extends BaseAdapter {
             viewHolder = (ViewHolder) convertView.getTag();
         }
 
-        Floor floor = (Floor) getItem(position);
+        Floor floor = getItem(position);
 
         if (floor != null) {
             viewHolder.ctv.setText(floor.getName());
@@ -64,8 +68,35 @@ public class FloorListAdapter extends BaseAdapter {
         return convertView;
     }
 
+    public Integer getBuildingId() {
+        return buildingId;
+    }
+
     public void setSelectedPosition(int selectedPosition) {
-        this.selectedPosition = selectedPosition;
+        int pos = -1;
+        if (selectedPosition >= 0 && selectedPosition < mList.length) {
+            pos = selectedPosition;
+        }
+        this.selectedPosition = pos;
+    }
+
+    public void setSelectedPosition(@NonNull Floor floor) {
+        int pos = -1;
+        for (int i = 0; i < mList.length; i++) {
+            Floor f = mList[i];
+            if (f != null && floor.getId().equals(f.getId())) {
+                pos = i;
+                break;
+            }
+        }
+        selectedPosition = pos;
+    }
+
+    public void updateList(@NonNull Place building) {
+        if (building.getId().equals(buildingId)) return;
+        buildingId = building.getId();
+        mList = building.floorList;
+        notifyDataSetChanged();
     }
 
     class ViewHolder {

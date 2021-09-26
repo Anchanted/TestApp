@@ -49,6 +49,10 @@ public class Place implements Serializable {
 
     private List<PlaceFloor> floorInfo;
 
+    public Floor[] floorList;
+
+    public int currentFloorIndex = -1;
+
     public Place() {}
 
     public Integer getId() {

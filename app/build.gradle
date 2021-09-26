@@ -93,7 +93,7 @@ dependencies {
     // palette
     implementation 'androidx.palette:palette:1.0.0'
 
-    // permmision dispatcher
+    // permission dispatcher
     implementation "org.permissionsdispatcher:permissionsdispatcher:4.8.0"
     annotationProcessor "org.permissionsdispatcher:permissionsdispatcher-processor:4.8.0"
 

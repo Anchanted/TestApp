@@ -7,7 +7,7 @@ public class AnimationTransform {
     public float scaleY;
 
     public AnimationTransform() {
-        this(0, 0, 0, 0);
+        this(0, 0, 1, 1);
     }
 
     public AnimationTransform(float translateX, float translateY, float scaleX, float scaleY) {

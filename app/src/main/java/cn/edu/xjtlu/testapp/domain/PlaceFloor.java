@@ -23,7 +23,7 @@ public class PlaceFloor implements Serializable {
 
     private Point location;
 
-    private List<List<Point>> areaCoords;
+    private List<List<List<Point>>> areaCoords;
 
     public Integer getPlaceId() {
         return placeId;
@@ -89,11 +89,11 @@ public class PlaceFloor implements Serializable {
         this.location = location;
     }
 
-    public List<List<Point>> getAreaCoords() {
+    public List<List<List<Point>>> getAreaCoords() {
         return areaCoords;
     }
 
-    public void setAreaCoords(List<List<Point>> areaCoords) {
+    public void setAreaCoords(List<List<List<Point>>> areaCoords) {
         this.areaCoords = areaCoords;
     }
 

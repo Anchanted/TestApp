@@ -44,7 +44,7 @@ public class PlainPlace {
 
     private Point location;
 
-    private List<List<Point>> areaCoords;
+    private List<List<List<Point>>> areaCoords;
 
     private Object address;
 
@@ -216,11 +216,11 @@ public class PlainPlace {
         this.location = location;
     }
 
-    public List<List<Point>> getAreaCoords() {
+    public List<List<List<Point>>> getAreaCoords() {
         return areaCoords;
     }
 
-    public void setAreaCoords(List<List<Point>> areaCoords) {
+    public void setAreaCoords(List<List<List<Point>>> areaCoords) {
         this.areaCoords = areaCoords;
     }
 

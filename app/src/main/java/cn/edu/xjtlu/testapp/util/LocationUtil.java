@@ -26,10 +26,10 @@ public class LocationUtil implements LocationListener {
     public static String TAG = LocationUtil.class.getSimpleName();
     private final LocationManager locationManager;
     private String locationProvider;
-    private final WeakReference<LocationListener> mListener;
+    private final LocationListener mListener;
 
     public LocationUtil(Context context, LocationListener listener) {
-        mListener = new WeakReference<>(listener);
+        mListener = listener;
         locationManager = (LocationManager) context.getSystemService(Context.LOCATION_SERVICE);
 
         List<String> providers = locationManager.getProviders(true);
@@ -49,8 +49,7 @@ public class LocationUtil implements LocationListener {
 
     @SuppressLint("MissingPermission")
     public Location getLocation() {
-        Location location = locationManager.getLastKnownLocation(locationProvider);
-        return location;
+        return locationManager.getLastKnownLocation(locationProvider);
     }
 
     public boolean canGetLocation() {
@@ -60,7 +59,9 @@ public class LocationUtil implements LocationListener {
     @SuppressLint("MissingPermission")
     public void requestLocationUpdates() {
         if (locationProvider == null) return;
-        locationManager.requestLocationUpdates(locationProvider, 3000, 1, this);
+//        locationManager.requestLocationUpdates(locationProvider, 3000, 1, this);
+        locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 3000, 1, this);
+        locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 3000, 1, this);
     }
 
     public void removeUpdates() {
@@ -91,11 +92,11 @@ public class LocationUtil implements LocationListener {
 
     @Override
     public void onLocationChanged(@NonNull Location location) {
+//        LocationListener listener = mListener.get();
         LogUtil.d(TAG, "onLocationChanged " + location);
-        LocationListener listener = mListener.get();
-        if (listener != null) {
-            listener.onLocationChanged(location);
-        }
+//        if (listener != null) {
+            mListener.onLocationChanged(location);
+//        }
     }
 
     enum SamplePoint {

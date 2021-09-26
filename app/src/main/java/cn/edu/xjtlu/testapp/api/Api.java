@@ -64,20 +64,20 @@ public class Api {
         return instance;
     }
 
-    public Observable<Result<String>> getFloorInfo(Integer floorId, Integer buildingId) {
+    public Observable<Result<String>> getFloorInfo(Integer buildingId, Integer floorId) {
         if (floorId == null && buildingId == null) {
             return service.getCampusInfo()
                     .subscribeOn(Schedulers.io())
                     .observeOn(AndroidSchedulers.mainThread());
         } else {
-            return service.getFloorInfo(floorId, buildingId)
+            return service.getFloorInfo(buildingId, floorId)
                     .subscribeOn(Schedulers.io())
                     .observeOn(AndroidSchedulers.mainThread());
         }
     }
 
-    public Observable<Result<String>> getPlaceInfo(Integer id, String location, String indoor) {
-        return service.getPlaceInfo(id, location, indoor)
+    public Observable<Result<String>> getPlaceInfo(Integer id, String location) {
+        return service.getPlaceInfo(id, location)
                 .subscribeOn(Schedulers.io())
                 .observeOn(AndroidSchedulers.mainThread());
     }

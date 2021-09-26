@@ -12,9 +12,13 @@ import android.content.Intent;
 import android.content.res.Configuration;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.graphics.Canvas;
 import android.graphics.Color;
-import android.graphics.Point;
+import android.graphics.Paint;
+import android.graphics.Path;
 import android.graphics.PointF;
+import android.graphics.PorterDuff;
+import android.graphics.PorterDuffXfermode;
 import android.graphics.Typeface;
 import android.graphics.drawable.Drawable;
 import android.location.Location;
@@ -45,23 +49,24 @@ import android.widget.ToggleButton;
 
 import com.bumptech.glide.Glide;
 import com.bumptech.glide.RequestBuilder;
-import com.bumptech.glide.RequestManager;
 import com.bumptech.glide.load.DataSource;
 import com.bumptech.glide.load.engine.GlideException;
 import com.bumptech.glide.request.RequestListener;
 import com.bumptech.glide.request.target.CustomTarget;
 import com.bumptech.glide.request.target.Target;
 import com.bumptech.glide.request.transition.Transition;
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import org.w3c.dom.Text;
-
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 
 import butterknife.BindView;
 import butterknife.OnCheckedChanged;
@@ -69,6 +74,8 @@ import butterknife.OnClick;
 import cn.edu.xjtlu.testapp.adapter.FloorListAdapter;
 import cn.edu.xjtlu.testapp.adapter.MenuListAdapter;
 import cn.edu.xjtlu.testapp.api.Api;
+import cn.edu.xjtlu.testapp.domain.PlaceFloor;
+import cn.edu.xjtlu.testapp.domain.Point;
 import cn.edu.xjtlu.testapp.domain.response.Result;
 import cn.edu.xjtlu.testapp.domain.Floor;
 import cn.edu.xjtlu.testapp.domain.Place;
@@ -82,8 +89,6 @@ import cn.edu.xjtlu.testapp.util.LogUtil;
 import cn.edu.xjtlu.testapp.util.NetworkUtil;
 import cn.edu.xjtlu.testapp.util.ResourceUtil;
 import cn.edu.xjtlu.testapp.util.SensorUtil;
-import cn.edu.xjtlu.testapp.util.ToastUtil;
-import cn.edu.xjtlu.testapp.widget.FloorAlertDialog;
 import cn.edu.xjtlu.testapp.widget.loading.LoadingStateManager;
 import cn.edu.xjtlu.testapp.widget.loading.LoadingStateManagerInterface;
 import cn.edu.xjtlu.testapp.widget.popupwindow.FloorPopupWindow;
@@ -153,7 +158,19 @@ public class MainActivity extends BaseCommonActivity {
     private Integer buildingId;
     @NonNull
     private Floor currentFloor = new Floor();
+    @NonNull
+    private Place currentBuilding = new Place();
+    private final int cachedFloorListCapacity = 30;
+    private final int cachedBuildingListCapacity = 20;
+    private final LinkedList<Floor> cachedFloorList = new LinkedList<>();
+    private final LinkedList<Place> cachedBuildingList = new LinkedList<>();
+    private Integer currentBuildingId;
+    private int floorPopupWindowMaxHeight;
+    private int getFloorInfoId;
+    private boolean indoorMode;
     private int floorDirection;
+
+    private final Set<String> requestingFloorSet = new HashSet<>();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -195,14 +212,14 @@ public class MainActivity extends BaseCommonActivity {
                 .setOnNetworkErrorRetryClickListener(null, new LoadingStateManagerInterface.OnClickListener() {
                     @Override
                     public void onClick() {
-                        loadImage();
+                        loadMainImage();
                     }
                 })
                 .setErrorView(null, null)
                 .setOnErrorRetryClickListener(null, new LoadingStateManagerInterface.OnClickListener() {
                     @Override
                     public void onClick() {
-                        loadImage();
+                        loadMainImage();
                     }
                 })
                 .build();
@@ -260,6 +277,8 @@ public class MainActivity extends BaseCommonActivity {
     protected void initData() {
         super.initData();
 
+        floorPopupWindowMaxHeight = getResources().getDimensionPixelSize(R.dimen.spinner_dropdown_max_height);
+        loadMainImage();
         requestMapData();
     }
 
@@ -277,10 +296,11 @@ public class MainActivity extends BaseCommonActivity {
         locationUtil = new LocationUtil(getApplicationContext(), location -> {
             tvLatitude.setText(String.valueOf(location.getLatitude()));
             tvLongitude.setText(String.valueOf(location.getLongitude()));
-//                LogUtil.d(TAG, location.getLatitude() + " " + location.getLongitude());
+                LogUtil.d(TAG, location.getLatitude() + " " + location.getLongitude());
 //                ToastUtil.shortToastSuccess(location.getLatitude() + " " + location.getLongitude());
-//                cv.setLocation(LocationUtil.geoToImage(new Point(location.getLatitude(), location.getLongitude())));
-            cv.setLocation(600, 500);
+            PointF point = LocationUtil.geoToImage(new Point(location.getLatitude(), location.getLongitude()));
+            cv.setLocation(point.x, point.y);
+//            cv.setLocation(600, 500);
         });
 
         sensorUtil = new SensorUtil(getApplicationContext(), direction -> {
@@ -298,7 +318,7 @@ public class MainActivity extends BaseCommonActivity {
             @Override
             public void onPlaceSelected(PlainPlace place) {
                 if (!"building".equals(place.getPlaceType())) return;
-                Api.getInstance().getPlaceInfo(place.getId(), null, null).subscribe(new HttpObserver<Result<String>>() {
+                Api.getInstance().getPlaceInfo(place.getId(), null).subscribe(new HttpObserver<Result<String>>() {
                     @Override
                     public void onSubscribe(@io.reactivex.annotations.NonNull Disposable d) {
                         super.onSubscribe(d);
@@ -376,8 +396,8 @@ public class MainActivity extends BaseCommonActivity {
             }
 
             @Override
-            public void onPlaceSelected(Point location) {
-                Api.getInstance().getPlaceInfo(null, String.format("%d,%d", location.x, location.y), floorId == null ? null : String.format("%d,%d", buildingId, floorId)).subscribe(new HttpObserver<Result<String>>() {
+            public void onPlaceSelected(PointF location) {
+                Api.getInstance().getPlaceInfo(null, String.format("%.1f,%.1f", location.x, location.y)).subscribe(new HttpObserver<Result<String>>() {
                     @SuppressLint("InflateParams")
                     @Override
                     public void onSucceed(@io.reactivex.annotations.NonNull Result<String> result) {
@@ -394,6 +414,23 @@ public class MainActivity extends BaseCommonActivity {
                         }
                     }
                 });
+            }
+
+            @Override
+            public void onBuildingIdUpdate(int id) {
+                if (currentBuildingId == null || currentBuildingId != id) {
+                    currentBuildingId = id;
+                    getFloorInfo(id, null);
+                }
+            }
+
+            @Override
+            public void onIndoorModeUpdate(boolean flag) {
+                indoorMode = flag;
+                if (!flag) {
+                    floorButtonLayout.setVisibility(View.INVISIBLE);
+                }
+                getFloorInfo(currentBuildingId, null);
             }
 
             @Override
@@ -472,6 +509,7 @@ public class MainActivity extends BaseCommonActivity {
 
     @OnClick(R.id.button_floor)
     public void onFloorBtnClick(View v) {
+        if (floorPopupWindow == null) return;
         if (floorPopupWindow.isShowing()) {
             floorPopupWindow.dismiss();
         } else {
@@ -592,90 +630,43 @@ public class MainActivity extends BaseCommonActivity {
         }
     }
 
-    public void loadImage() {
+    public void loadMainImage() {
         canvasLoadingManager.dismiss();
         canvasLoadingManager.showLoading();
         mHandler.post(() -> {
             try {
-                RequestBuilder<Bitmap> requestBuilder = Glide.with(getMainActivity()).asBitmap();
-                if (floorId == null) {
-                    requestBuilder = requestBuilder.load(R.drawable.map);
-                } else {
-                    String url = currentFloor.getImgUrl();
-                    String imgUrl = url.startsWith("http") ? url : ResourceUtil.resourceUri(url);
-                    requestBuilder = requestBuilder.load(imgUrl);
+                Bitmap mapImage = BitmapFactory.decodeResource(getResources(), R.drawable.map);
+                int width = mapImage.getWidth();
+                int height = mapImage.getHeight();
+                int length = Math.max(width, height);
+                SparseIntArray colorArray = new SparseIntArray();
+                for (int i = 0; i < length; i++) {
+                    int color;
+                    if (i < width) {
+                        color = mapImage.getPixel(i, 0) & 0xffffff;
+                        colorArray.put(color, colorArray.get(color) + 1);
+                        color = mapImage.getPixel(i, height - 1) & 0xffffff;
+                        colorArray.put(color, colorArray.get(color) + 1);
+                    }
+                    if (i < height) {
+                        color = mapImage.getPixel(0, i) & 0xffffff;
+                        colorArray.put(color, colorArray.get(color) + 1);
+                        color = mapImage.getPixel(width - 1, i) & 0xffffff;
+                        colorArray.put(color, colorArray.get(color) + 1);
+                    }
                 }
-                requestBuilder.listener(new RequestListener<Bitmap>() {
-                            @Override
-                            public boolean onLoadFailed(@Nullable GlideException e, Object model, Target<Bitmap> target, boolean isFirstResource) {
-                                LogUtil.d(TAG, "onLoadFailed");
-                                canvasLoadingManager.showNetworkError();
-                                return false;
-                            }
-
-                            @Override
-                            public boolean onResourceReady(Bitmap resource, Object model, Target<Bitmap> target, DataSource dataSource, boolean isFirstResource) {
-                                LogUtil.d(TAG, "onResourceReady1");
-                                return false;
-                            }
-                        })
-                        .into(new CustomTarget<Bitmap>() {
-                            @Override
-                            public void onResourceReady(@NonNull Bitmap resource, @Nullable Transition<? super Bitmap> transition) {
-                                LogUtil.d(TAG, "onResourceReady2");
-                                cv.setMapImage(resource);
-                                canvasLoadingManager.dismiss();
-                                hideButton.setVisibility(View.VISIBLE);
-                                int width = resource.getWidth();
-                                int height = resource.getHeight();
-                                int length = width > height ? width : height;
-                                SparseIntArray colorArray = new SparseIntArray();
-                                for (int i = 0; i < length; i++) {
-                                    int color;
-                                    if (i < width) {
-                                        color = resource.getPixel(i, 0) & 0xffffff;
-                                        colorArray.put(color, colorArray.get(color) + 1);
-                                        color = resource.getPixel(i, height - 1) & 0xffffff;
-                                        colorArray.put(color, colorArray.get(color) + 1);
-                                    }
-                                    if (i < height) {
-                                        color = resource.getPixel(0, i) & 0xffffff;
-                                        colorArray.put(color, colorArray.get(color) + 1);
-                                        color = resource.getPixel(width - 1, i) & 0xffffff;
-                                        colorArray.put(color, colorArray.get(color) + 1);
-                                    }
-                                }
-                                int color = colorArray.keyAt(0);
-                                int maxValue = 0;
-                                for (int i = 0; i < colorArray.size(); i++) {
-                                    if (maxValue < colorArray.valueAt(i)) {
-                                        color = colorArray.keyAt(i);
-                                        maxValue = colorArray.valueAt(i);
-                                    }
-                                }
-                                setPageColor(color|0xff000000);
-//                                Palette.from(resource)
-//                                        .generate(new Palette.PaletteAsyncListener() {
-//                                            @Override
-//                                            public void onGenerated(@Nullable Palette palette) {
-//                                                Palette.Swatch swatch = palette.getMutedSwatch();
-//
-//                                                if (swatch != null) {
-//                                                    int rgb = swatch.getRgb();
-//                                                    setPageColor(rgb);
-//                                                }
-//                                            }
-//                                        });
-                            }
-
-                            @Override
-                            public void onLoadCleared(@Nullable Drawable placeholder) {
-                                LogUtil.d(TAG, "onLoadCleared");
-                            }
-                        });
-//                                .submit()
-//                                .get();
-
+                int color = colorArray.keyAt(0);
+                int maxValue = 0;
+                for (int i = 0; i < colorArray.size(); i++) {
+                    if (maxValue < colorArray.valueAt(i)) {
+                        color = colorArray.keyAt(i);
+                        maxValue = colorArray.valueAt(i);
+                    }
+                }
+                setPageColor(color|0xff000000);
+                cv.setMapImage(mapImage);
+                canvasLoadingManager.dismiss();
+                hideButton.setVisibility(View.VISIBLE);
             } catch (Exception e) {
                 e.printStackTrace();
                 canvasLoadingManager.showError();
@@ -687,7 +678,7 @@ public class MainActivity extends BaseCommonActivity {
         activityLoadingManager.dismiss();
         activityLoadingManager.showLoading();
 
-        Api.getInstance().getFloorInfo(this.floorId, this.buildingId).subscribe(new HttpObserver<Result<String>>() {
+        Api.getInstance().getFloorInfo(null, null).subscribe(new HttpObserver<Result<String>>() {
             @SuppressLint("InflateParams")
             @Override
             public void onSucceed(@io.reactivex.annotations.NonNull Result<String> result) {
@@ -697,47 +688,6 @@ public class MainActivity extends BaseCommonActivity {
                     JsonNode rootNode = mapper.readTree(string);
                     cv.setPlaceList(Arrays.asList(mapper.readValue(rootNode.get("placeList").toString(), PlainPlace[].class)));
 
-                    if (floorId == null) {
-                        loadImage();
-                    } else {
-                        currentFloor = mapper.readValue(rootNode.get("selectedFloor").toString(), Floor.class);
-                        floorButton.setText(currentFloor.getName());
-                        loadImage();
-
-                        Place building = mapper.readValue(rootNode.get("building").toString(), Place.class);
-                        tvCode.setText(building.getCode());
-
-                        occupationButton.setVisibility((currentFloor.getHasOccupation() == null || !currentFloor.getHasOccupation()) ? View.GONE : View.VISIBLE);
-
-                        List<Floor> floorList = Arrays.asList(mapper.readValue(rootNode.get("floorList").toString(), Floor[].class));
-                        int position = 0;
-                        for (int i = 0; i < floorList.size(); i++) {
-                            if (floorId.equals(floorList.get(i).getId())) {
-                                position = i;
-                            }
-                        }
-                        FloorListAdapter adapter = new FloorListAdapter(getMainActivity(), floorList);
-                        adapter.setSelectedPosition(position);
-                        int maxHeight = getResources().getDimensionPixelSize(R.dimen.spinner_dropdown_max_height);
-
-                        floorPopupWindow = new FloorPopupWindow(LayoutInflater.from(getMainActivity()).inflate(R.layout.floor_dropdown, null, false), getResources().getDimensionPixelSize(R.dimen.button_size), floorList.size() > 6 ? maxHeight : ViewGroup.LayoutParams.WRAP_CONTENT, adapter, (parent, view, position1, id) -> {
-                            LogUtil.d(TAG, "onItemSelected: " + floorList.get(position1));
-                            adapter.setSelectedPosition(position1);
-                            floorButton.performClick();
-                            Floor floor = floorList.get(position1);
-                            if (floor == null) return;
-                            if (floor.getId().equals(floorId)) return;
-                            Intent intent = new Intent(MainActivity.this, MainActivity.class);
-                            intent.putExtra("floorId", floorList.get(position1).getId());
-                            intent.putExtra("buildingId", buildingId);
-                            startActivityAndFinish(intent);
-//                                getWindow().setExitTransition(TransitionInflater.from(getMainActivity()).inflateTransition(R.transition.slide_up));
-//                                getWindow().setEnterTransition(TransitionInflater.from(getMainActivity()).inflateTransition(R.transition.slide_up));
-//                                startActivity(intent, ActivityOptions.makeSceneTransitionAnimation(getMainActivity()).toBundle());
-//                                finish();
-                        });
-                        floorButtonLayout.setVisibility(View.VISIBLE);
-                    }
                     buttonGroupRB.setVisibility(View.VISIBLE);
                     activityLoadingManager.dismiss();
                 } catch (Exception e) {
@@ -753,5 +703,398 @@ public class MainActivity extends BaseCommonActivity {
                 return false;
             }
         });
+    }
+
+    public void getFloorInfo(Integer buildingId, Integer floorId) {
+        if (!indoorMode) return;
+        if (buildingId == null && floorId == null) return;
+
+        int methodId = getFloorInfoId + 1;
+        getFloorInfoId = methodId;
+
+        final Place[] building = {null};
+        final Floor[] floor = {null};
+
+        if (buildingId != null) {
+            for (Place place : cachedBuildingList) {
+                if (buildingId.equals(place.getId())) {
+                    building[0] = place;
+                    break;
+                }
+            }
+        }
+        if (building[0] != null) {
+            boolean some = false;
+            if (floorId != null) {
+                for (int i = 0; i < building[0].floorList.length; i++) {
+                    if (floorId.equals(building[0].floorList[i].getId())) {
+                        some = true;
+                        break;
+                    }
+                }
+            }
+            if (!some && building[0].currentFloorIndex >= 0 && building[0].currentFloorIndex < building[0].floorList.length) {
+                floorId = building[0].floorList[building[0].currentFloorIndex].getId();
+            }
+        }
+        if (buildingId != null) {
+            if (floorId == null) {
+                boolean flag = false;
+                for (Place b : this.cachedBuildingList) {
+                    if (b.currentFloorIndex < 0 || b.currentFloorIndex >= b.floorList.length) continue;
+                    PlaceFloor[] buildingList = b.floorList[b.currentFloorIndex].getBuildingList();
+                    for (int i = 0; i < buildingList.length; i++) {
+                        if (buildingId.equals(buildingList[i].getPlaceId())) {
+                            floorId = buildingList[i].getFloorId();
+                            flag = true;
+                            break;
+                        }
+                    }
+                    if (flag) break;
+                }
+            }
+            if (floorId == null) {
+                boolean flag = false;
+                for (Floor f : this.cachedFloorList) {
+                    PlaceFloor[] buildingList = f.getBuildingList();
+                    for (int i = 0; i < buildingList.length; i++) {
+                        if (buildingId.equals(buildingList[i].getPlaceId())) {
+                            floorId = buildingList[i].getFloorId();
+                            flag = true;
+                            break;
+                        }
+                    }
+                    if (flag) break;
+                }
+            }
+        }
+        if (floorId != null) {
+            for (Floor f : cachedFloorList) {
+                if (floorId.equals(f.getId())) {
+                    floor[0] = f;
+                    break;
+                }
+            }
+        }
+
+        if (building[0] != null && floor[0] != null) {
+            setFloorInfo(building[0], floor[0], methodId);
+        } else  {
+            String key = String.format("%d,%d", buildingId, floorId);
+            if (requestingFloorSet.contains(key)) return;
+            requestingFloorSet.add(key);
+            if (floor[0] != null) {
+                setCurrentFloor(floor[0]);
+                cv.arrangeFloorList(floor[0]);
+            }
+            Api.getInstance().getFloorInfo(buildingId, floorId).subscribe(new HttpObserver<Result<String>>() {
+                @SuppressLint("InflateParams")
+                @Override
+                public void onSucceed(@io.reactivex.annotations.NonNull Result<String> result) {
+                    ObjectMapper mapper = new ObjectMapper();
+                    try {
+                        String string = AESUtil.decrypt(result.getData());
+                        JsonNode rootNode = mapper.readTree(string);
+//                        PlainPlace[] placeArr = mapper.readValue(rootNode.get("placeList").toString(), PlainPlace[].class);
+
+                        if (building[0] == null) {
+                            Place place = mapper.readValue(rootNode.get("building").toString(), Place.class);
+                            if (place != null) {
+                                Floor[] floorList = mapper.readValue(rootNode.get("floorList").toString(), Floor[].class);
+                                place.floorList = floorList == null ? new Floor[0] : floorList;
+                            }
+                            building[0] = place;
+                        }
+
+                        if (floor[0] == null) {
+                            floor[0] = mapper.readValue(rootNode.get("floor").toString(), Floor.class);
+                            setFloorGraphicData(floor[0]);
+                        }
+
+                        if (building[0] != null && floor[0] != null) {
+                            boolean some1 = false;
+                            for (int i = 0; i < building[0].floorList.length; i++) {
+                                if (Objects.equals(building[0].floorList[i].getId(), floor[0].getId())) {
+                                    some1 = true;
+                                    break;
+                                }
+                            }
+                            if (!some1) {
+                                throw new Exception("Floor not in the building.");
+                            }
+                        }
+
+                        setFloorInfo(building[0], floor[0], methodId);
+
+    //                    occupationButton.setVisibility((currentFloor.getHasOccupation() == null || !currentFloor.getHasOccupation()) ? View.GONE : View.VISIBLE);
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                    requestingFloorSet.remove(key);
+                }
+
+                @Override
+                public boolean onFailed(Result<String> data, @io.reactivex.annotations.NonNull Throwable e) {
+                    e.printStackTrace();
+                    requestingFloorSet.remove(key);
+                    return false;
+                }
+            });
+        }
+    }
+
+    private void setFloorInfo(Place building, Floor floor, int methodId) {
+        if (building == null || floor == null) return;
+
+        if (getFloorInfoId == methodId && building.getId().equals(currentBuildingId)) {
+            if (!building.getId().equals(currentBuilding.getId())) {
+                currentBuilding = building;
+                tvCode.setText(building.getCode());
+
+                Floor[] floorList = building.floorList;
+                if (floorPopupWindow == null) {
+                    FloorListAdapter adapter = new FloorListAdapter(getMainActivity(), building);
+
+                    floorPopupWindow = new FloorPopupWindow(LayoutInflater.from(getMainActivity()).inflate(R.layout.floor_dropdown, null, false), getResources().getDimensionPixelSize(R.dimen.button_size), floorList.length > 6 ? floorPopupWindowMaxHeight : ViewGroup.LayoutParams.WRAP_CONTENT, adapter, (parent, view, pos, id) -> {
+                        LogUtil.d(TAG, "onItemSelected: " + floorList[pos]);
+                        floorPopupWindow.dismiss();
+//                        floorButton.performClick();
+//                        adapter.setSelectedPosition(pos);
+                        Integer buildingId = adapter.getBuildingId();
+                        Floor selectedFloor = adapter.getItem(pos);
+                        if (buildingId != null && selectedFloor != null && selectedFloor.getId() != null) {
+                            getFloorInfo(buildingId, selectedFloor.getId());
+                        }
+                    });
+                } else {
+                    floorPopupWindow.getAdapter().updateList(building);
+                    floorPopupWindow.setHeight(floorList.length > 6 ? floorPopupWindowMaxHeight : ViewGroup.LayoutParams.WRAP_CONTENT);
+                }
+            }
+
+            boolean flag = false;
+            for (int i = 0; i < building.floorList.length; i++) {
+                if (floor.getId().equals(building.floorList[i].getId())) {
+                    flag = true;
+                    break;
+                }
+            }
+            if (flag && !floor.getId().equals(currentFloor.getId())) {
+                setCurrentFloor(floor);
+                floorButton.setText(floor.getName());
+                floorPopupWindow.getAdapter().setSelectedPosition(floor);
+            }
+            if (floorButtonLayout.getVisibility() != View.VISIBLE && indoorMode) {
+                floorButtonLayout.setVisibility(View.VISIBLE);
+            }
+            cv.arrangeFloorList(floor);
+        }
+
+        int ii;
+
+        int buildingIndex = -1;
+        Iterator<Place> buildingIterator = cachedBuildingList.iterator();
+        ii = 0;
+        while (buildingIterator.hasNext()) {
+            Place b = buildingIterator.next();
+            if (building.getId().equals(b.getId())) {
+                buildingIndex = ii;
+                if (buildingIndex > 0) {
+                    buildingIterator.remove();
+                }
+                break;
+            }
+            ii++;
+        }
+        if (buildingIndex != 0) cachedBuildingList.addFirst(building);
+        while (cachedBuildingList.size() > cachedBuildingListCapacity) {
+            cachedBuildingList.removeLast();
+        }
+
+        int floorIndex = -1;
+        Iterator<Floor> floorIterator = cachedFloorList.iterator();
+        ii = 0;
+        while (floorIterator.hasNext()) {
+            Floor f = floorIterator.next();
+            if (floor.getId().equals(f.getId())) {
+                floorIndex = ii;
+                if (floorIndex > 0) {
+                    floorIterator.remove();
+                }
+                break;
+            }
+            ii++;
+        }
+        if (floorIndex != 0) cachedFloorList.addFirst(floor);
+        while (cachedFloorList.size() > cachedFloorListCapacity) {
+            Floor f = cachedFloorList.removeLast();
+            if (!floor.getId().equals(f.getId())) {
+                cv.deleteImage(String.format("map%d", f.getId()));
+            }
+        }
+
+        for (Place b : cachedBuildingList) {
+            int index = -1;
+            for (int i = 0; i < b.floorList.length; i++) {
+                if (floor.getId().equals(b.floorList[i].getId())) {
+                    index = i;
+                    break;
+                }
+            }
+            b.currentFloorIndex = index;
+        }
+    }
+
+    private void setFloorGraphicData(@NonNull Floor floor) {
+        if (floor.getRatio() == null || floor.getRatio() <= 0) {
+            floor.setRatio(1f);
+        }
+        if (floor.getRefCoords() == null) return;
+        Float[][][] refCoords = floor.getRefCoords();
+        refCoords[1][0][1] *= floor.getRatio();
+        refCoords[1][1][1] *= floor.getRatio();
+        double degree = getDegree(refCoords[0][0][0], refCoords[0][0][1], refCoords[0][1][0], refCoords[0][1][1], refCoords[1][0][0], refCoords[1][0][1], refCoords[1][1][0], refCoords[1][1][1]);
+        degree += (degree < -Math.PI / 4) ? Math.PI : 0;
+        floor.degree = (float) Math.toDegrees(degree);
+        floor.scale = getDistance(refCoords[0][0][0], refCoords[0][0][1], refCoords[0][1][0], refCoords[0][1][1]) / getDistance(refCoords[1][0][0], refCoords[1][0][1], refCoords[1][1][0], refCoords[1][1][1]);
+        PointF offset = getRotatedPoint(refCoords[1][0][0], refCoords[1][0][1], degree);
+        floor.origin.x = floor.getRefCoords()[0][0][0] - floor.scale * offset.x;
+        floor.origin.y = floor.getRefCoords()[0][0][1] - floor.scale * offset.y;
+    }
+
+    private void setCurrentFloor(@NonNull Floor floor) {
+        if (floor.getImgUrl() == null) return;
+        String key = String.format("map%d", floor.getId());
+        if (!cv.hasImage(key)) {
+            mHandler.post(() -> {
+                try {
+                    String imgUrl = floor.getImgUrl().startsWith("http") ? floor.getImgUrl() : ResourceUtil.resourceUri(floor.getImgUrl());
+                    LogUtil.d("loadFloorImage", floor.getImgUrl());
+                    RequestBuilder<Bitmap> requestBuilder = Glide.with(getMainActivity()).asBitmap().load(imgUrl);
+
+                    requestBuilder.listener(new RequestListener<Bitmap>() {
+                        @Override
+                        public boolean onLoadFailed(@Nullable GlideException e, Object model, Target<Bitmap> target, boolean isFirstResource) {
+                            LogUtil.d(TAG, "onLoadFailed");
+                            return false;
+                        }
+
+                        @Override
+                        public boolean onResourceReady(Bitmap resource, Object model, Target<Bitmap> target, DataSource dataSource, boolean isFirstResource) {
+                            LogUtil.d(TAG, "onResourceReady1");
+                            return false;
+                        }
+                    }).into(new CustomTarget<Bitmap>() {
+                        @Override
+                        public void onResourceReady(@NonNull Bitmap resource, @Nullable Transition<? super Bitmap> transition) {
+                            LogUtil.d(TAG, "onResourceReady2");
+                            if (floor.getRefCoords() != null) {
+                                float[][] bounds = {
+                                        {0, 0},
+                                        {resource.getWidth(), 0},
+                                        {resource.getWidth(), resource.getHeight()},
+                                        {0, resource.getHeight()}
+                                };
+                                for (int i = 0; i < bounds.length; i++) {
+                                    PointF point = getRotatedPoint(bounds[i][0], bounds[i][1] * floor.getRatio(), Math.toRadians(floor.degree));
+                                    point.x *= floor.scale;
+                                    point.y *= floor.scale;
+                                    point.x += floor.origin.x;
+                                    point.y += floor.origin.y;
+                                    bounds[i][0] = point.x;
+                                    bounds[i][1] = point.y;
+                                }
+                                float minX = bounds[0][0];
+                                float maxX = bounds[0][0];
+                                float minY = bounds[0][1];
+                                float maxY = bounds[0][1];
+                                for (int i = 0; i < bounds.length; i++) {
+                                    if (minX > bounds[i][0]) {
+                                        minX = bounds[i][0];
+                                    }
+                                    if (maxX < bounds[i][0]) {
+                                        maxX = bounds[i][0];
+                                    }
+                                    if (minY > bounds[i][1]) {
+                                        minY = bounds[i][1];
+                                    }
+                                    if (maxY < bounds[i][1]) {
+                                        maxY = bounds[i][1];
+                                    }
+                                }
+                                floor.envelope = new PointF[]{new PointF(minX, minY), new PointF(maxX, maxY)};
+                            }
+
+//                            cv.addImage(key, resource);
+
+                            Bitmap newImage = resource.copy(Bitmap.Config.ARGB_8888, true);
+                            Canvas canvas = new Canvas(newImage);
+                            Path path = new Path();
+                            path.setFillType(Path.FillType.EVEN_ODD);
+                            boolean flag = false;
+                            if (floor.getBuildingList() != null) {
+                                for (int n = 0; n < floor.getBuildingList().length; n++) {
+                                    PlaceFloor pf = floor.getBuildingList()[n];
+                                    if (pf.getAreaCoords() == null) continue;
+                                    flag = true;
+                                    List<List<List<Point>>> areaCoords = pf.getAreaCoords();
+                                    for (int i = 0; i < areaCoords.size(); i++) {
+                                        List<List<Point>> polygon = areaCoords.get(i);
+                                        for (int j = 0; j < polygon.size(); j++) {
+                                            List<Point> pointList = polygon.get(j);
+                                            for (int k = 0; k < pointList.size(); k++) {
+                                                double x = pointList.get(k).getX();
+                                                double y = pointList.get(k).getY();
+                                                x -= floor.origin.x;
+                                                y -= floor.origin.y;
+                                                x /= floor.scale;
+                                                y /= floor.scale;
+                                                PointF point = getRotatedPoint((float) x, (float) y, -Math.toRadians(floor.degree));
+                                                if (k == 0) path.moveTo(Math.round(point.x), Math.round(point.y / floor.getRatio()));
+                                                else path.lineTo(Math.round(point.x), Math.round(point.y / floor.getRatio()));
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            Paint paint = new Paint();
+                            paint.setColor(Color.RED);
+                            paint.setAntiAlias(true);
+                            paint.setStyle(Paint.Style.FILL);
+                            if (flag) {
+                                paint.setXfermode(new PorterDuffXfermode(PorterDuff.Mode.SRC_OUT));
+                                canvas.drawPath(path, paint);
+                            }
+                            canvas.drawBitmap(resource, 0, 0, paint);
+                            cv.addImage(key, newImage);
+                        }
+
+                        @Override
+                        public void onLoadCleared(@Nullable Drawable placeholder) {
+                            LogUtil.d(TAG, "onLoadCleared");
+                        }
+                    });
+//                        .submit()
+//                        .get();
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            });
+        }
+        currentFloor = floor;
+    }
+
+    public double getDegree(float x11, float y11, float x12, float y12, float x21, float y21, float x22, float y22) {
+        double a1 = Math.atan((y11 - y12) / (x11 - x12));
+        double a2 = Math.atan((y21 - y22) / (x21 - x22));
+        return a1 - a2;
+    }
+
+    public float getDistance(float x1, float y1, float x2, float y2) {
+        return (float) Math.sqrt((x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1));
+    }
+
+    public PointF getRotatedPoint(float x, float y, double degree) {
+        return new PointF((float) (x * Math.cos(degree) - y * Math.sin(degree)), (float) (x * Math.sin(degree) + y * Math.cos(degree)));
     }
 }
